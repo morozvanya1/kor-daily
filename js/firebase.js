@@ -3,12 +3,12 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-aut
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB1JET_UNj0P0PT22vggM3ljwnf6wWFcYU",
+  authDomain: "kor-daily.firebaseapp.com",
+  projectId: "kor-daily",
+  storageBucket: "kor-daily.firebasestorage.app",
+  messagingSenderId: "856422019923",
+  appId: "1:856422019923:web:2297cebc2241bfbf6a27a6"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
