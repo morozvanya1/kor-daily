@@ -1,17 +1,37 @@
-# KOR Daily v1.1
+# KOR Daily v1.2
 
-Исправления: календарь по месяцам и дням, стрелки дней, выбор иконок, без цели, тип «Значение», редактирование, сброс таймера, раздельные поля авторизации.
+## Что исправлено
+- Работают стрелки предыдущего/следующего дня.
+- «Вернуться к сегодня» возвращает на текущую дату.
+- Календарь реально переключает месяцы и выбирает дату.
+- Нажатие на дату в шапке тоже открывает календарь.
+- Добавление ежедневных и запланированных заданий работает через одну модальную форму.
+- Редактирование заданий работает для ежедневных и запланированных.
+- В архив добавлены SVG-иконки.
+- Старые emoji-иконки из Firebase отображаются как есть, новые задания используют SVG.
+- Поле цели отсутствует.
+- Есть тип «Ввести значение».
+- У таймера есть Старт / Стоп / Сброс.
+- Таймер не пишет в Firestore каждую секунду: время считается локально и сохраняется при остановке/завершении/сбросе, что экономит бесплатные операции Firebase.
 
-Firebase: вставь конфиг в `js/firebase.js`; включи Authentication → Email/Password и Firestore.
+## Firebase
+В `js/firebase.js` вставь свой `firebaseConfig`.
 
-Rules:
+Authentication → Sign-in method → Email/Password → Enable.
+
+Firestore Rules:
 ```text
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write:
+        if request.auth != null
+        && request.auth.uid == userId;
     }
   }
 }
 ```
+
+Загрузи содержимое папки в корень GitHub-репозитория и включи GitHub Pages.
