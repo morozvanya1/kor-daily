@@ -1,79 +1,11 @@
-import { state } from "./state.js";
-
-export function dateKey(date=new Date()){
-  const y=date.getFullYear(),m=String(date.getMonth()+1).padStart(2,"0"),d=String(date.getDate()).padStart(2,"0");
-  return `${y}-${m}-${d}`;
-}
-export function formatDate(value){
-  return new Date(value+"T00:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
-}
-export function formatTime(seconds){
-  seconds=Math.max(0,Math.floor(seconds));
-  const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;
-  return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-}
-export function renderDate(){
-  document.getElementById("todayTitle").textContent=new Date().toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});
-}
-function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
-
-export function renderDaily(onToggle,onDelete,onCounter,onTimer){
-  const c=document.getElementById("dailyList"),today=dateKey(); c.innerHTML="";
-  const tasks=state.dailyTasks.filter(t=>t.active!==false);
-  for(const task of tasks){
-    const value=state.completions[task.id]?.[today] ?? (task.type==="counter"?0:false);
-    const done=task.type==="counter"?Number(value)>=Number(task.target):task.type==="timer"?Number(value)>=Number(task.target):!!value;
-    const el=document.createElement("div"); el.className="task"+(done?" completed":"");
-    const cb=document.createElement("button"); cb.className="checkbox"; cb.textContent=done?"✓":""; cb.onclick=()=>onToggle(task); el.appendChild(cb);
-    const ic=document.createElement("div"); ic.className="task-icon"; ic.textContent=task.icon||"🎮"; el.appendChild(ic);
-    const content=document.createElement("div"); content.className="task-content";
-    content.innerHTML=`<div class="task-name">${esc(task.name)}</div><div class="task-meta">${task.note?esc(task.note):"каждый день"}</div>`; el.appendChild(content);
-    if(task.type==="counter") el.appendChild(counter(task,today,onCounter));
-    if(task.type==="timer") el.appendChild(timer(task,today,onTimer));
-    const del=document.createElement("button"); del.className="task-action"; del.textContent="×"; del.onclick=()=>onDelete(task); el.appendChild(del);
-    c.appendChild(el);
-  }
-  document.getElementById("dailyCount").textContent=tasks.length;
-}
-function counter(task,today,cb){
-  const w=document.createElement("div"); w.className="counter"; const v=Number(state.completions[task.id]?.[today]||0);
-  const minus=document.createElement("button"); minus.className="counter-button"; minus.textContent="−"; minus.onclick=()=>cb(task,Math.max(0,v-1));
-  const text=document.createElement("div"); text.className="counter-value"; text.textContent=`${v}/${task.target}`;
-  const plus=document.createElement("button"); plus.className="counter-button"; plus.textContent="+"; plus.onclick=()=>cb(task,Math.min(Number(task.target),v+1));
-  w.append(minus,text,plus); return w;
-}
-function timer(task,today,cb){
-  const w=document.createElement("div"); w.className="timer";
-  const v=Number(state.completions[task.id]?.[today]||0);
-  const text=document.createElement("div"); text.className="timer-value"; text.textContent=`${formatTime(v)} / ${formatTime(task.target)}`;
-  const b=document.createElement("button"); b.className="timer-button"; b.textContent=state.timerIntervals[task.id]?"Стоп":"Старт"; b.onclick=()=>cb(task);
-  w.append(text,b); return w;
-}
-export function renderPlanned(onToggle,onDelete){
-  const c=document.getElementById("plannedList"),today=dateKey(); c.innerHTML="";
-  const items=state.plannedTasks.filter(t=>t.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
-  for(const task of items){
-    const d=new Date(task.date+"T00:00:00"),el=document.createElement("div"); el.className="task"+(task.completed?" completed":"");
-    const cb=document.createElement("button"); cb.className="checkbox"; cb.textContent=task.completed?"✓":""; cb.onclick=()=>onToggle(task); el.appendChild(cb);
-    const date=document.createElement("div"); date.className="planned-date"; date.innerHTML=`<div class="planned-day">${d.getDate()}</div><div class="planned-month">${d.toLocaleDateString("ru-RU",{month:"short"})}</div>`; el.appendChild(date);
-    const ic=document.createElement("div"); ic.className="task-icon"; ic.textContent=task.icon||"🎯"; el.appendChild(ic);
-    const cont=document.createElement("div"); cont.className="planned-content"; cont.innerHTML=`<div class="planned-name">${esc(task.name)}</div><div class="planned-meta">${formatDate(task.date)}${task.note?" · "+esc(task.note):""}</div>`; el.appendChild(cont);
-    const del=document.createElement("button"); del.className="task-action"; del.textContent="×"; del.onclick=()=>onDelete(task); el.appendChild(del); c.appendChild(el);
-  }
-  document.getElementById("plannedCount").textContent=state.plannedTasks.length;
-}
-export function renderProgress(){
-  const today=dateKey(),tasks=state.dailyTasks.filter(t=>t.active!==false); let done=0;
-  for(const t of tasks){const v=state.completions[t.id]?.[today]; if(t.type==="counter"||t.type==="timer"){if(Number(v||0)>=Number(t.target))done++;}else if(v)done++;}
-  const p=tasks.length?Math.round(done/tasks.length*100):0;
-  document.getElementById("progressBar").style.width=p+"%"; document.getElementById("todayPercent").textContent=p+"%"; document.getElementById("progressText").textContent=`${done} из ${tasks.length} выполнено`;
-}
-export function renderStats(){
-  let completed=0; for(const id in state.completions) for(const d in state.completions[id]) if(state.completions[id][d]) completed++;
-  document.getElementById("statCompleted").textContent=completed;
-  const days=[]; for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);days.push(dateKey(d));}
-  let total=0,done=0; for(const t of state.dailyTasks){total+=7;for(const d of days)if(state.completions[t.id]?.[d])done++;}
-  document.getElementById("statPercent").textContent=(total?Math.round(done/total*100):0)+"%";
-  let streak=0; for(let i=0;i<365;i++){const d=new Date();d.setDate(d.getDate()-i);const k=dateKey(d);const all=state.dailyTasks.length&&state.dailyTasks.every(t=>{const v=state.completions[t.id]?.[k];return t.type==="counter"||t.type==="timer"?Number(v||0)>=Number(t.target):!!v});if(all)streak++;else break;}
-  document.getElementById("statStreak").textContent=streak;
-}
+import {state} from "./state.js";
+export const $=id=>document.getElementById(id);export const key=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`};
+export const fmtDate=k=>new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
+export const fmtTime=s=>{s=Math.max(0,Math.floor(s));return `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor(s%3600/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`};
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+export function render(onToggle,onDelete,onValue,onTimer,onEdit){const d=key(state.selectedDate);$("todayTitle").textContent=state.selectedDate.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});$("selectedDayLabel").textContent=d===key(new Date())?"Сегодня":fmtDate(d);$("todayButton").hidden=d===key(new Date());
+const list=$("dailyList");list.innerHTML="";for(const t of state.dailyTasks.filter(x=>x.active!==false)){const v=state.completions[t.id]?.[d]??(t.type==="timer"?0:"");const done=t.type==="timer"?Number(v)>=Number(t.target||3600):t.type==="value"?String(v).trim()!=="":!!v;const e=document.createElement("div");e.className="task"+(done?" completed":"");e.innerHTML=`<button class="checkbox">${done?"✓":""}</button><div class="task-icon">${t.icon||"🎮"}</div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta">${esc(t.note|| (t.type==="timer"?"таймер 1 час":t.type==="value"?(v?"значение сохранено":"введите значение"):"каждый день"))}</div></div>`;e.querySelector(".checkbox").onclick=()=>onToggle(t);if(t.type==="value"){const w=document.createElement("div");w.className="value-editor";w.innerHTML=`<input class="value-input" placeholder="значение" value="${esc(v)}"><button class="value-save">OK</button>`;w.querySelector(".value-save").onclick=()=>onValue(t,w.querySelector("input").value.trim());w.querySelector("input").onkeydown=z=>z.key==="Enter"&&onValue(t,z.target.value.trim());e.appendChild(w)}if(t.type==="timer"){const w=document.createElement("div");w.className="timer";w.innerHTML=`<span class="timer-value">${fmtTime(v)}</span><button class="timer-button">${state.timers[t.id]?.date===d?"Стоп":"Старт"}</button><button class="timer-reset">↺</button>`;w.querySelector(".timer-button").onclick=()=>onTimer(t,"toggle");w.querySelector(".timer-reset").onclick=()=>onTimer(t,"reset");e.appendChild(w)}const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>onEdit(t,"daily");a.children[1].onclick=()=>onDelete(t);e.appendChild(a);list.appendChild(e)}$("dailyCount").textContent=state.dailyTasks.length;
+const pl=$("plannedList");pl.innerHTML="";const future=state.plannedTasks.filter(t=>t.date>=key(new Date())).sort((a,b)=>a.date.localeCompare(b.date));for(const t of future.slice(0,10)){const x=new Date(t.date+"T00:00:00"),e=document.createElement("div");e.className="task"+(t.completed?" completed":"");e.innerHTML=`<button class="checkbox">${t.completed?"✓":""}</button><div class="planned-date"><b>${x.getDate()}</b><small>${x.toLocaleDateString("ru-RU",{month:"short"})}</small></div><div class="task-icon">${t.icon||"🎯"}</div><div class="planned-content"><div class="planned-name">${esc(t.name)}</div><div class="planned-meta">${fmtDate(t.date)}${t.note?" · "+esc(t.note):""}</div></div>`;e.querySelector(".checkbox").onclick=()=>onToggle(t);const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>onEdit(t,"planned");a.children[1].onclick=()=>onDelete(t);e.appendChild(a);pl.appendChild(e)}$("plannedCount").textContent=future.length;renderProgress();renderStats();renderSpecial()}
+function renderProgress(){const d=key(state.selectedDate),a=state.dailyTasks.filter(x=>x.active!==false);let n=0;for(const t of a){const v=state.completions[t.id]?.[d];if(t.type==="timer"?Number(v)>=Number(t.target||3600):t.type==="value"?String(v??"").trim()!=="":!!v)n++}const p=a.length?Math.round(n/a.length*100):0;$("progressBar").style.width=p+"%";$("todayPercent").textContent=p+"%";$("progressText").textContent=`${n} из ${a.length} выполнено`}
+function renderStats(){let n=0;for(const id in state.completions)for(const d in state.completions[id])if(state.completions[id][d])n++;$("statCompleted").textContent=n;$("statPercent").textContent="—";$("statStreak").textContent="—"}
+function renderSpecial(){const d=key(state.selectedDate),c=$("todaySpecialList");c.innerHTML="";state.plannedTasks.filter(t=>t.date===d).forEach(t=>{const e=document.createElement("div");e.className="task"+(t.completed?" completed":"");e.innerHTML=`<button class="checkbox">${t.completed?"✓":""}</button><div class="task-icon">${t.icon||"🎯"}</div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta">${fmtDate(d)}</div></div>`;e.querySelector(".checkbox").onclick=()=>window.__togglePlanned(t);const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>window.__edit(t,"planned");a.children[1].onclick=()=>window.__deletePlanned(t);e.appendChild(a);c.appendChild(e)});$("todaySpecialSection").hidden=!c.children.length}

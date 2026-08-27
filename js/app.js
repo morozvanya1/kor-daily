@@ -1,88 +1,11 @@
-import { initAuth, login, register, logout } from "./auth.js";
-import { state } from "./state.js";
-import { loadTasks, createDefaultTasks, addDailyTask, addPlannedTask, updateTask, removeTask } from "./tasks.js";
-import { dateKey, renderDate, renderDaily, renderPlanned, renderProgress, renderStats, formatTime } from "./ui.js";
-import { collection, doc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
-import { db } from "./firebase.js";
-
-const $=id=>document.getElementById(id), loginScreen=$("loginScreen"), app=$("app");
-const completionCol=()=>collection(db,"users",state.user.uid,"completions");
-const completionDoc=d=>doc(db,"users",state.user.uid,"completions",d);
-
-async function loadCompletions(){
-  state.completions={}; const s=await getDocs(completionCol());
-  s.forEach(x=>state.completions[x.id]=x.data());
-}
-async function saveCompletion(taskId,date,value){
-  if(!state.completions[taskId])state.completions[taskId]={};
-  state.completions[taskId][date]=value;
-  await setDoc(completionDoc(date),state.completionsForDate(date),{merge:true});
-}
-state.completionsForDate=function(date){const o={};for(const id in state.completions)if(state.completions[id][date]!==undefined)o[id]=state.completions[id][date];return o};
-
-initAuth(async user=>{
-  if(!user){loginScreen.hidden=false;app.hidden=true;return}
-  loginScreen.hidden=true;app.hidden=false;$("userEmail").textContent=user.email;
-  try{await loadTasks();await createDefaultTasks();await loadCompletions();render()}catch(e){console.error(e);alert("Не удалось загрузить данные Firebase. Проверь конфигурацию и Rules.")}
-});
-
-$("loginButton").onclick=async()=>{try{await login($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authError(e)}};
-$("registerButton").onclick=async()=>{try{await register($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authError(e)}};
-$("logoutButton").onclick=()=>logout();
-$("userButton").onclick=()=>{$("userMenu").hidden=!$("userMenu").hidden};
-function authError(e){return ({ "auth/invalid-credential":"Неверный email или пароль","auth/email-already-in-use":"Этот email уже используется","auth/weak-password":"Пароль должен быть минимум 6 символов","auth/invalid-email":"Некорректный email"})[e.code]||"Ошибка авторизации"}
-
-function render(){renderDate();renderDaily(toggleDaily,deleteDaily,updateCounter,toggleTimer);renderPlanned(togglePlanned,deletePlanned);renderProgress();renderStats();renderTodaySpecial()}
-
-async function toggleDaily(t){const d=dateKey(),v=!!state.completions[t.id]?.[d];await saveCompletion(t.id,d,!v);render()}
-async function updateCounter(t,v){await saveCompletion(t.id,dateKey(),v);render()}
-async function togglePlanned(t){t.completed=!t.completed;await updateTask("planned",t.id,{completed:t.completed});render()}
-async function deleteDaily(t){if(confirm(`Удалить "${t.name}"?`)){await removeTask("daily",t.id);render()}}
-async function deletePlanned(t){if(confirm(`Удалить "${t.name}"?`)){await removeTask("planned",t.id);render()}}
-
-function toggleTimer(t){
-  const id=t.id,d=dateKey(); if(state.timerIntervals[id]){clearInterval(state.timerIntervals[id]);delete state.timerIntervals[id];render();return}
-  let start=Number(state.completions[id]?.[d]||0);
-  state.timerIntervals[id]=setInterval(async()=>{
-    start++; if(start>=Number(t.target)){clearInterval(state.timerIntervals[id]);delete state.timerIntervals[id]}
-    await saveCompletion(id,d,start);render();
-  },1000); render();
-}
-
-function renderTodaySpecial(){
-  const c=$("todaySpecialList"),d=dateKey();c.innerHTML="";
-  state.plannedTasks.filter(t=>t.date===d).forEach(t=>{
-    const el=document.createElement("div");el.className="task"+(t.completed?" completed":"");
-    const cb=document.createElement("button");cb.className="checkbox";cb.textContent=t.completed?"✓":"";cb.onclick=()=>togglePlanned(t);el.appendChild(cb);
-    const ic=document.createElement("div");ic.className="task-icon";ic.textContent=t.icon||"🎯";el.appendChild(ic);
-    const cont=document.createElement("div");cont.className="task-content";cont.innerHTML=`<div class="task-name">${escapeHtml(t.name)}</div><div class="task-meta">сегодня</div>`;el.appendChild(cont);c.appendChild(el);
-  });
-  $("todaySpecialSection").hidden=!c.children.length;
-}
-function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
-
-const modal=$("taskModal");
-function openModal(type){state.modalType=type;$("modalTitle").textContent=type==="daily"?"Новое ежедневное":"Задание на дату";$("dateField").hidden=type!=="planned";$("taskName").value="";$("taskIcon").value="🎮";$("taskType").value="check";$("taskTarget").value=10;$("taskNote").value="";$("taskDate").value=dateKey();$("targetField").hidden=true;modal.hidden=false}
-$("addTaskButton").onclick=()=>openModal("daily");$("emptyDailyButton").onclick=()=>openModal("daily");$("plannedButton").onclick=()=>openModal("planned");
-function closeModal(){$("taskModal").hidden=true}
-$("closeModalButton").onclick=closeModal;$("cancelModalButton").onclick=closeModal;
-$("taskType").onchange=e=>$("targetField").hidden=e.target.value==="check";
-$("saveTaskButton").onclick=async()=>{
-  const name=$("taskName").value.trim();if(!name)return alert("Введите название");
-  const type=$("taskType").value,task={name,icon:$("taskIcon").value||"🎮",type,note:$("taskNote").value.trim()};
-  if(type!=="check")task.target=Number($("taskTarget").value)||1;
-  if(state.modalType==="daily")await addDailyTask(task);else{task.date=$("taskDate").value;if(!task.date)return alert("Выберите дату");await addPlannedTask(task)}
-  closeModal();render();
-};
-
-$("calendarButton").onclick=()=>openCalendar();$("closeCalendarButton").onclick=()=>$("calendarModal").hidden=true;
-function openCalendar(){renderCalendar();$("calendarModal").hidden=false}
-function renderCalendar(){
-  const c=$("calendar"),d=state.calendarMonth,year=d.getFullYear(),month=d.getMonth();
-  const first=new Date(year,month,1),days=new Date(year,month+1,0).getDate(),offset=(first.getDay()+6)%7;
-  c.innerHTML=`<div class="calendar-title"><button class="calendar-nav" id="prevMonth">‹</button><span>${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar-nav" id="nextMonth">›</button></div>`;
-  const grid=document.createElement("div");grid.className="calendar-grid";["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].forEach(x=>{const e=document.createElement("div");e.className="calendar-weekday";e.textContent=x;grid.appendChild(e)});
-  for(let i=0;i<offset;i++)grid.appendChild(document.createElement("div"));
-  for(let day=1;day<=days;day++){const cell=document.createElement("button");cell.className="calendar-day-cell";const k=dateKey(new Date(year,month,day));cell.textContent=day;if(k===dateKey())cell.classList.add("today");if(state.dailyTasks.length&&state.dailyTasks.every(t=>{const v=state.completions[t.id]?.[k];return t.type==="counter"||t.type==="timer"?Number(v||0)>=Number(t.target):!!v}))cell.classList.add("complete");cell.onclick=()=>{$("calendarDay").textContent=`${new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}`};grid.appendChild(cell)}
-  c.appendChild(grid);$("prevMonth").onclick=()=>{d.setMonth(month-1);renderCalendar()};$("nextMonth").onclick=()=>{d.setMonth(month+1);renderCalendar()}
-}
+import {initAuth,login,register,logout} from "./auth.js";import {state} from "./state.js";import {loadTasks,createDefaultTasks,addTask,editTask,removeTask} from "./tasks.js";import {db} from "./firebase.js";import {collection,getDocs,doc,setDoc} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";import {render,$,key} from "./ui.js";
+const completionCol=()=>collection(db,"users",state.user.uid,"completions"),completionDoc=d=>doc(db,"users",state.user.uid,"completions",d);async function loadCompletions(){state.completions={};(await getDocs(completionCol())).forEach(x=>state.completions[x.id]=x.data())}async function save(id,d,v){state.completions[id]??={};state.completions[id][d]=v;const o={};for(const x in state.completions)if(state.completions[x][d]!==undefined)o[x]=state.completions[x][d];await setDoc(completionDoc(d),o,{merge:true})}
+function redraw(){render(toggleDaily,deleteDaily,saveValue,timerAction,openEdit)}initAuth(async u=>{if(!u){$("loginScreen").hidden=false;$("app").hidden=true;return}$("loginScreen").hidden=true;$("app").hidden=false;$("userEmail").textContent=u.email;try{await loadTasks();await createDefaultTasks();await loadCompletions();redraw()}catch(e){console.error(e);alert("Ошибка Firebase: проверь firebaseConfig и Rules")}});
+const authErr=e=>({"auth/invalid-credential":"Неверный email или пароль","auth/email-already-in-use":"Этот email уже используется","auth/weak-password":"Пароль должен быть минимум 6 символов","auth/invalid-email":"Некорректный email"}[e.code]||"Ошибка авторизации");$("loginButton").onclick=async()=>{try{await login($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authErr(e)}};$("registerButton").onclick=async()=>{try{await register($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authErr(e)}};$("logoutButton").onclick=logout;$("userButton").onclick=()=>$("userMenu").hidden=!$("userMenu").hidden;
+function toggleDaily(t){const d=key(state.selectedDate),v=state.completions[t.id]?.[d];if(t.type==="value")return;const done=t.type==="timer"?Number(v)>=Number(t.target||3600):!!v;save(t.id,d,done?false:(t.type==="timer"?Number(t.target||3600):true)).then(redraw)}function saveValue(t,v){save(t.id,key(state.selectedDate),v).then(redraw)}
+function timerAction(t,a){const id=t.id,d=key(state.selectedDate);if(a==="reset"){if(state.timers[id]){clearInterval(state.timers[id].interval);delete state.timers[id]}save(id,d,0).then(redraw);return}if(state.timers[id]?.date===d){clearInterval(state.timers[id].interval);delete state.timers[id];redraw();return}let v=Number(state.completions[id]?.[d]||0);const interval=setInterval(()=>{v++;save(id,d,v);redraw();if(v>=Number(t.target||3600)){clearInterval(interval);delete state.timers[id]}},1000);state.timers[id]={date:d,interval};redraw()}
+async function togglePlanned(t){await editTask("planned",t.id,{completed:!t.completed});redraw()}async function deleteDaily(t){if(confirm(`Удалить «${t.name}»?`)){await removeTask("daily",t.id);redraw()}}async function deletePlanned(t){if(confirm(`Удалить «${t.name}»?`)){await removeTask("planned",t.id);redraw()}}window.__togglePlanned=togglePlanned;window.__deletePlanned=deletePlanned;window.__edit=(t,type)=>openEdit(t,type);
+function changeDay(n){const d=new Date(state.selectedDate);d.setDate(d.getDate()+n);state.selectedDate=d;redraw()}$("prevDayButton").onclick=()=>changeDay(-1);$("nextDayButton").onclick=()=>changeDay(1);$("todayButton").onclick=()=>{state.selectedDate=new Date();redraw()};
+const icons=["⚔️","⚙️","🎟️","💎","🔥","🏆","🛡️","🐉","⚡","🎯","🪙","🎁","🗺️","🧪","👑","💰","🔮","🌟","⏱️","🎲","🏹","🗡️","🧿","📜"];function iconsUI(sel){$("iconPicker").innerHTML="";icons.forEach(i=>{const b=document.createElement("button");b.type="button";b.className="icon-choice"+(i===sel?" selected":"");b.textContent=i;b.onclick=()=>{$("taskIcon").value=i;iconsUI(i)};$("iconPicker").appendChild(b)})}
+const modal=$("taskModal");function openEdit(t,type){state.editing=t;state.modalType=type;$("modalTitle").textContent="Редактировать задание";fill(t,type)}function fill(t,type){$("dateField").hidden=type!=="planned";$("taskName").value=t?.name||"";$("taskIcon").value=t?.icon||"⚔️";$("taskType").value=t?.type||"check";$("taskNote").value=t?.note||"";$("taskDate").value=t?.date||key(state.selectedDate);$("valueHint").hidden=$("taskType").value!=="value";iconsUI($("taskIcon").value);modal.hidden=false}function newTask(type){state.editing=null;state.modalType=type;$("modalTitle").textContent=type==="daily"?"Новое ежедневное":"Задание на дату";fill(null,type)}$("addTaskButton").onclick=()=>newTask("daily");$("emptyDailyButton").onclick=()=>newTask("daily");$("plannedButton").onclick=()=>newTask("planned");$("taskType").onchange=e=>$("valueHint").hidden=e.target.value!=="value";function closeModal(){modal.hidden=true;state.editing=null}$("closeModalButton").onclick=closeModal;$("cancelModalButton").onclick=closeModal;$("saveTaskButton").onclick=async()=>{const name=$("taskName").value.trim();if(!name)return alert("Введите название");const x={name,icon:$("taskIcon").value||"⚔️",type:$("taskType").value,note:$("taskNote").value.trim()};if(state.modalType==="planned")x.date=$("taskDate").value;if(state.editing)await editTask(state.modalType,state.editing.id,x);else await addTask(state.modalType,x);closeModal();redraw()};
+$("calendarButton").onclick=()=>{state.calendarMonth=new Date(state.selectedDate.getFullYear(),state.selectedDate.getMonth(),1);state.calendarSelectedDate=key(state.selectedDate);drawCalendar();$("calendarModal").hidden=false};$("closeCalendarButton").onclick=()=>$("calendarModal").hidden=true;function drawCalendar(){const d=state.calendarMonth,y=d.getFullYear(),m=d.getMonth(),first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),off=(first.getDay()+6)%7,c=$("calendar");c.innerHTML=`<div class="calendar-title"><button class="calendar-nav" id="prevMonth">‹</button><span>${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar-nav" id="nextMonth">›</button></div>`;const g=document.createElement("div");g.className="calendar-grid";["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].forEach(w=>{const e=document.createElement("div");e.className="calendar-weekday";e.textContent=w;g.appendChild(e)});for(let i=0;i<off;i++)g.appendChild(document.createElement("div"));for(let n=1;n<=days;n++){const k=key(new Date(y,m,n)),b=document.createElement("button");b.className="calendar-day-cell"+(k===key(new Date())?" today":"")+(k===state.calendarSelectedDate?" selected":"");b.textContent=n;b.onclick=()=>{state.calendarSelectedDate=k;state.selectedDate=new Date(k+"T00:00:00");drawCalendar();redraw();$("calendarDay").textContent=new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})};g.appendChild(b)}c.appendChild(g);$("prevMonth").onclick=()=>{d.setMonth(d.getMonth()-1);drawCalendar()};$("nextMonth").onclick=()=>{d.setMonth(d.getMonth()+1);drawCalendar()};$("calendarDay").textContent=state.calendarSelectedDate?new Date(state.calendarSelectedDate+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"}):"Выберите день"}

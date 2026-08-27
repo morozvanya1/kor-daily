@@ -1,41 +1,8 @@
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
-import { db } from "./firebase.js";
-import { state } from "./state.js";
-
-const col = name => collection(db,"users",state.user.uid,name);
-const item = (name,id) => doc(db,"users",state.user.uid,name,id);
-
-export async function loadTasks(){
-  state.dailyTasks=[]; state.plannedTasks=[];
-  const [d,p]=await Promise.all([getDocs(col("dailyTasks")),getDocs(col("plannedTasks"))]);
-  d.forEach(x=>state.dailyTasks.push({id:x.id,...x.data()}));
-  p.forEach(x=>state.plannedTasks.push({id:x.id,...x.data()}));
-}
-export async function createDefaultTasks(){
-  if(state.dailyTasks.length) return;
-  const defaults=[
-    {name:"Механорум",icon:"⚙️",type:"check"},
-    {name:"Мобить 1 час",icon:"⚔️",type:"timer",target:3600},
-    {name:"Лотерея",icon:"🎟️",type:"check"},
-    {name:"Кристаллы",icon:"💎",type:"check"}
-  ];
-  for(const task of defaults) await addDoc(col("dailyTasks"),{...task,active:true,createdAt:Date.now()});
-  await loadTasks();
-}
-export async function addDailyTask(task){
-  const r=await addDoc(col("dailyTasks"),{...task,active:true,createdAt:Date.now()});
-  state.dailyTasks.push({id:r.id,...task,active:true});
-}
-export async function addPlannedTask(task){
-  const r=await addDoc(col("plannedTasks"),{...task,completed:false,createdAt:Date.now()});
-  state.plannedTasks.push({id:r.id,...task,completed:false});
-}
-export async function updateTask(type,id,data){
-  await updateDoc(item(type==="daily"?"dailyTasks":"plannedTasks",id),data);
-}
-export async function removeTask(type,id){
-  const name=type==="daily"?"dailyTasks":"plannedTasks";
-  await deleteDoc(item(name,id));
-  if(type==="daily") state.dailyTasks=state.dailyTasks.filter(x=>x.id!==id);
-  else state.plannedTasks=state.plannedTasks.filter(x=>x.id!==id);
-}
+import {collection,addDoc,getDocs,updateDoc,deleteDoc,doc} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import {db} from "./firebase.js"; import {state} from "./state.js";
+const col=n=>collection(db,"users",state.user.uid,n), ref=(n,id)=>doc(db,"users",state.user.uid,n,id);
+export async function loadTasks(){const[d,p]=await Promise.all([getDocs(col("dailyTasks")),getDocs(col("plannedTasks"))]);state.dailyTasks=d.docs.map(x=>({id:x.id,...x.data()}));state.plannedTasks=p.docs.map(x=>({id:x.id,...x.data()}))}
+export async function createDefaultTasks(){if(state.dailyTasks.length)return;for(const x of [{name:"Механорум",icon:"⚙️",type:"check"},{name:"Мобить 1 час",icon:"⚔️",type:"timer",target:3600},{name:"Лотерея",icon:"🎟️",type:"check"},{name:"Кристаллы",icon:"💎",type:"value"}])await addDoc(col("dailyTasks"),{...x,active:true,createdAt:Date.now()});await loadTasks()}
+export async function addTask(type,data){const n=type==="daily"?"dailyTasks":"plannedTasks",x=type==="daily"?{...data,active:true,createdAt:Date.now()}:{...data,completed:false,createdAt:Date.now()};const r=await addDoc(col(n),x);(type==="daily"?state.dailyTasks:state.plannedTasks).push({id:r.id,...x})}
+export async function editTask(type,id,data){const n=type==="daily"?"dailyTasks":"plannedTasks";await updateDoc(ref(n,id),data);const a=type==="daily"?state.dailyTasks:state.plannedTasks,o=a.find(x=>x.id===id);if(o)Object.assign(o,data)}
+export async function removeTask(type,id){const n=type==="daily"?"dailyTasks":"plannedTasks";await deleteDoc(ref(n,id));if(type==="daily")state.dailyTasks=state.dailyTasks.filter(x=>x.id!==id);else state.plannedTasks=state.plannedTasks.filter(x=>x.id!==id)}
