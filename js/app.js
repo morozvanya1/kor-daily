@@ -1,11 +1,154 @@
-import {initAuth,login,register,logout} from "./auth.js";import {state} from "./state.js";import {loadTasks,createDefaultTasks,addTask,editTask,removeTask} from "./tasks.js";import {db} from "./firebase.js";import {collection,getDocs,doc,setDoc} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";import {render,$,key} from "./ui.js";
-const completionCol=()=>collection(db,"users",state.user.uid,"completions"),completionDoc=d=>doc(db,"users",state.user.uid,"completions",d);async function loadCompletions(){state.completions={};(await getDocs(completionCol())).forEach(x=>state.completions[x.id]=x.data())}async function save(id,d,v){state.completions[id]??={};state.completions[id][d]=v;const o={};for(const x in state.completions)if(state.completions[x][d]!==undefined)o[x]=state.completions[x][d];await setDoc(completionDoc(d),o,{merge:true})}
-function redraw(){render(toggleDaily,deleteDaily,saveValue,timerAction,openEdit)}initAuth(async u=>{if(!u){$("loginScreen").hidden=false;$("app").hidden=true;return}$("loginScreen").hidden=true;$("app").hidden=false;$("userEmail").textContent=u.email;try{await loadTasks();await createDefaultTasks();await loadCompletions();redraw()}catch(e){console.error(e);alert("Ошибка Firebase: проверь firebaseConfig и Rules")}});
-const authErr=e=>({"auth/invalid-credential":"Неверный email или пароль","auth/email-already-in-use":"Этот email уже используется","auth/weak-password":"Пароль должен быть минимум 6 символов","auth/invalid-email":"Некорректный email"}[e.code]||"Ошибка авторизации");$("loginButton").onclick=async()=>{try{await login($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authErr(e)}};$("registerButton").onclick=async()=>{try{await register($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authErr(e)}};$("logoutButton").onclick=logout;$("userButton").onclick=()=>$("userMenu").hidden=!$("userMenu").hidden;
-function toggleDaily(t){const d=key(state.selectedDate),v=state.completions[t.id]?.[d];if(t.type==="value")return;const done=t.type==="timer"?Number(v)>=Number(t.target||3600):!!v;save(t.id,d,done?false:(t.type==="timer"?Number(t.target||3600):true)).then(redraw)}function saveValue(t,v){save(t.id,key(state.selectedDate),v).then(redraw)}
-function timerAction(t,a){const id=t.id,d=key(state.selectedDate);if(a==="reset"){if(state.timers[id]){clearInterval(state.timers[id].interval);delete state.timers[id]}save(id,d,0).then(redraw);return}if(state.timers[id]?.date===d){clearInterval(state.timers[id].interval);delete state.timers[id];redraw();return}let v=Number(state.completions[id]?.[d]||0);const interval=setInterval(()=>{v++;save(id,d,v);redraw();if(v>=Number(t.target||3600)){clearInterval(interval);delete state.timers[id]}},1000);state.timers[id]={date:d,interval};redraw()}
-async function togglePlanned(t){await editTask("planned",t.id,{completed:!t.completed});redraw()}async function deleteDaily(t){if(confirm(`Удалить «${t.name}»?`)){await removeTask("daily",t.id);redraw()}}async function deletePlanned(t){if(confirm(`Удалить «${t.name}»?`)){await removeTask("planned",t.id);redraw()}}window.__togglePlanned=togglePlanned;window.__deletePlanned=deletePlanned;window.__edit=(t,type)=>openEdit(t,type);
-function changeDay(n){const d=new Date(state.selectedDate);d.setDate(d.getDate()+n);state.selectedDate=d;redraw()}$("prevDayButton").onclick=()=>changeDay(-1);$("nextDayButton").onclick=()=>changeDay(1);$("todayButton").onclick=()=>{state.selectedDate=new Date();redraw()};
-const icons=["⚔️","⚙️","🎟️","💎","🔥","🏆","🛡️","🐉","⚡","🎯","🪙","🎁","🗺️","🧪","👑","💰","🔮","🌟","⏱️","🎲","🏹","🗡️","🧿","📜"];function iconsUI(sel){$("iconPicker").innerHTML="";icons.forEach(i=>{const b=document.createElement("button");b.type="button";b.className="icon-choice"+(i===sel?" selected":"");b.textContent=i;b.onclick=()=>{$("taskIcon").value=i;iconsUI(i)};$("iconPicker").appendChild(b)})}
-const modal=$("taskModal");function openEdit(t,type){state.editing=t;state.modalType=type;$("modalTitle").textContent="Редактировать задание";fill(t,type)}function fill(t,type){$("dateField").hidden=type!=="planned";$("taskName").value=t?.name||"";$("taskIcon").value=t?.icon||"⚔️";$("taskType").value=t?.type||"check";$("taskNote").value=t?.note||"";$("taskDate").value=t?.date||key(state.selectedDate);$("valueHint").hidden=$("taskType").value!=="value";iconsUI($("taskIcon").value);modal.hidden=false}function newTask(type){state.editing=null;state.modalType=type;$("modalTitle").textContent=type==="daily"?"Новое ежедневное":"Задание на дату";fill(null,type)}$("addTaskButton").onclick=()=>newTask("daily");$("emptyDailyButton").onclick=()=>newTask("daily");$("plannedButton").onclick=()=>newTask("planned");$("taskType").onchange=e=>$("valueHint").hidden=e.target.value!=="value";function closeModal(){modal.hidden=true;state.editing=null}$("closeModalButton").onclick=closeModal;$("cancelModalButton").onclick=closeModal;$("saveTaskButton").onclick=async()=>{const name=$("taskName").value.trim();if(!name)return alert("Введите название");const x={name,icon:$("taskIcon").value||"⚔️",type:$("taskType").value,note:$("taskNote").value.trim()};if(state.modalType==="planned")x.date=$("taskDate").value;if(state.editing)await editTask(state.modalType,state.editing.id,x);else await addTask(state.modalType,x);closeModal();redraw()};
-$("calendarButton").onclick=()=>{state.calendarMonth=new Date(state.selectedDate.getFullYear(),state.selectedDate.getMonth(),1);state.calendarSelectedDate=key(state.selectedDate);drawCalendar();$("calendarModal").hidden=false};$("closeCalendarButton").onclick=()=>$("calendarModal").hidden=true;function drawCalendar(){const d=state.calendarMonth,y=d.getFullYear(),m=d.getMonth(),first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),off=(first.getDay()+6)%7,c=$("calendar");c.innerHTML=`<div class="calendar-title"><button class="calendar-nav" id="prevMonth">‹</button><span>${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar-nav" id="nextMonth">›</button></div>`;const g=document.createElement("div");g.className="calendar-grid";["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].forEach(w=>{const e=document.createElement("div");e.className="calendar-weekday";e.textContent=w;g.appendChild(e)});for(let i=0;i<off;i++)g.appendChild(document.createElement("div"));for(let n=1;n<=days;n++){const k=key(new Date(y,m,n)),b=document.createElement("button");b.className="calendar-day-cell"+(k===key(new Date())?" today":"")+(k===state.calendarSelectedDate?" selected":"");b.textContent=n;b.onclick=()=>{state.calendarSelectedDate=k;state.selectedDate=new Date(k+"T00:00:00");drawCalendar();redraw();$("calendarDay").textContent=new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})};g.appendChild(b)}c.appendChild(g);$("prevMonth").onclick=()=>{d.setMonth(d.getMonth()-1);drawCalendar()};$("nextMonth").onclick=()=>{d.setMonth(d.getMonth()+1);drawCalendar()};$("calendarDay").textContent=state.calendarSelectedDate?new Date(state.calendarSelectedDate+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"}):"Выберите день"}
+import { watchAuth, login, register, logout } from "./auth.js";
+import { state } from "./state.js";
+import { loadAll, ensureDefaults, createDaily, createPlanned, updateTask, deleteTask, saveCompletion } from "./data.js";
+import { $, dateKey, todayKey, renderAll } from "./ui.js";
+import { openCalendar, closeCalendar, moveMonth } from "./calendar.js";
+
+const ICONS=[
+  ["gear.svg","Механорум"],["swords.svg","Бой"],["ticket.svg","Лотерея"],["gem.svg","Кристаллы"],
+  ["dragon.svg","Дракон"],["crown.svg","Награда"],["shield.svg","Защита"],["potion.svg","Зелье"],
+  ["chest.svg","Сундук"],["coin.svg","Монеты"],["scroll.svg","Задание"],["map.svg","Карта"],
+  ["dice.svg","Игра"],["bow.svg","Лучник"],["fire.svg","Огонь"],["star.svg","Звезда"]
+];
+
+function authError(e){
+  return ({
+    "auth/invalid-credential":"Неверный email или пароль",
+    "auth/email-already-in-use":"Этот email уже используется",
+    "auth/weak-password":"Пароль должен быть минимум 6 символов",
+    "auth/invalid-email":"Некорректный email",
+    "auth/missing-password":"Введите пароль"
+  })[e.code] || e.message || "Ошибка";
+}
+function setAuthError(text){$("loginError").textContent=text||""}
+function setTaskError(text){$("taskError").textContent=text||""}
+
+watchAuth(async user=>{
+  if(!user){$("loginScreen").hidden=false;$("app").hidden=true;return}
+  $("loginScreen").hidden=true;$("app").hidden=false;$("userEmail").textContent=user.email||"";
+  try{await loadAll();await ensureDefaults();render()}catch(e){console.error(e);alert("Не удалось загрузить данные Firebase. Проверь firebaseConfig и Firestore Rules.");}
+});
+
+$("loginButton").addEventListener("click",async()=>{
+  setAuthError("");
+  try{await login($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){setAuthError(authError(e))}
+});
+$("registerButton").addEventListener("click",async()=>{
+  setAuthError("");
+  const email=$("loginEmail").value.trim(),password=$("loginPassword").value;
+  if(!email||!password){setAuthError("Введите email и пароль");return}
+  try{await register(email,password)}catch(e){setAuthError(authError(e))}
+});
+$("logoutButton").addEventListener("click",logout);
+$("userButton").addEventListener("click",()=>{$("userMenu").hidden=!$("userMenu").hidden});
+document.addEventListener("click",e=>{
+  if(!$("userMenu").hidden && !e.target.closest("#userMenu") && !e.target.closest("#userButton"))$("userMenu").hidden=true;
+});
+
+function render(){renderAll(handlers); updateRunningTimers();}
+const handlers={
+  toggle: async task=>{
+    const day=dateKey(state.selectedDate),value=state.completions[task.id]?.[day];
+    if(task.type==="timer"){ if(Number(value||0)>=3600) await saveCompletion(task.id,day,0); else await saveCompletion(task.id,day,3600); }
+    else if(task.type==="value"){ if(value) await saveCompletion(task.id,day,""); else openModal("daily",task); }
+    else await saveCompletion(task.id,day,!value);
+    render();
+  },
+  value: async(task,value)=>{await saveCompletion(task.id,dateKey(state.selectedDate),value);render()},
+  timer: task=>{
+    const id=task.id,day=dateKey(state.selectedDate);
+    if(state.timers[id]?.date===day){stopTimer(task);return}
+    state.timers[id]={date:day,startedAt:Date.now()};
+    render();
+  },
+  resetTimer: async task=>{
+    const id=task.id;
+    if(state.timers[id]){clearInterval(state.timers[id].interval);delete state.timers[id]}
+    await saveCompletion(id,dateKey(state.selectedDate),0);
+    render();
+  },
+  togglePlanned: async task=>{await updateTask("planned",task.id,{completed:!task.completed});render()},
+  edit:(task,type)=>openModal(type,task),
+  remove:async(task,type)=>{
+    if(confirm(`Удалить «${task.name}»?`)){if(state.timers[task.id]){clearInterval(state.timers[task.id].interval);delete state.timers[task.id]}await deleteTask(type,task.id);render()}
+  }
+};
+
+function stopTimer(task){
+  const running=state.timers[task.id];if(!running)return;
+  clearInterval(running.interval);
+  const day=running.date,base=Number(state.completions[task.id]?.[day]||0),elapsed=base+Math.floor((Date.now()-running.startedAt)/1000);
+  delete state.timers[task.id];
+  saveCompletion(task.id,day,Math.min(elapsed,3600)).then(render);
+}
+function updateRunningTimers(){
+  for(const id in state.timers){
+    if(!state.timers[id].interval){
+      state.timers[id].interval=setInterval(()=>{ 
+        const t=state.daily.find(x=>x.id===id),r=state.timers[id];
+        if(!r||!t)return;
+        const elapsed=Number(state.completions[id]?.[r.date]||0)+Math.floor((Date.now()-r.startedAt)/1000);
+        if(elapsed>=3600){stopTimer(t)}else render();
+      },1000);
+    }
+  }
+}
+function changeDay(delta){
+  const d=new Date(state.selectedDate);d.setDate(d.getDate()+delta);state.selectedDate=d;render();
+}
+$("prevDayButton").addEventListener("click",()=>changeDay(-1));
+$("nextDayButton").addEventListener("click",()=>changeDay(1));
+$("todayButton").addEventListener("click",()=>{state.selectedDate=new Date();render()});
+$("dateTitleButton").addEventListener("click",openCalendar);
+
+$("calendarButton").addEventListener("click",openCalendar);
+$("closeCalendarButton")?.addEventListener("click",closeCalendar);
+$("prevMonthButton").addEventListener("click",()=>moveMonth(-1));
+$("nextMonthButton").addEventListener("click",()=>moveMonth(1));
+document.addEventListener("kor:dateChanged",render);
+
+function buildIconPicker(selected){
+  const p=$("iconPicker");p.innerHTML="";
+  ICONS.forEach(([file,label])=>{
+    const b=document.createElement("button");b.type="button";b.className="icon-choice"+(file===selected?" selected":"");b.title=label;
+    b.innerHTML=`<img src="./icons/${file}" alt="${label}">`;
+    b.addEventListener("click",()=>{$("taskIcon").value=file;buildIconPicker(file)});
+    p.append(b);
+  });
+}
+function openModal(type,task=null){
+  state.modalType=type;state.editing=task;setTaskError("");
+  $("modalTitle").textContent=task?"Редактировать задание":type==="daily"?"Новое ежедневное":"Новое задание на дату";
+  $("taskName").value=task?.name||"";
+  $("taskIcon").value=task?.icon&&/\.(svg|png|webp|jpg|jpeg)$/i.test(task.icon)?task.icon:"gear.svg";
+  $("taskType").value=task?.type||"check";
+  $("taskNote").value=task?.note||"";
+  $("taskDate").value=task?.date||dateKey(state.selectedDate);
+  $("dateField").hidden=type!=="planned";
+  $("valueHint").hidden=$("taskType").value!=="value";
+  buildIconPicker($("taskIcon").value);
+  $("taskModal").hidden=false;
+}
+function closeTaskModal(){ $("taskModal").hidden=true;state.editing=null; }
+function openNew(type){openModal(type,null)}
+$("addTaskButton").addEventListener("click",()=>openNew("daily"));
+$("emptyDailyButton").addEventListener("click",()=>openNew("daily"));
+$("plannedButton").addEventListener("click",()=>openNew("planned"));
+$("taskType").addEventListener("change",e=>{$("valueHint").hidden=e.target.value!=="value"});
+$("saveTaskButton").addEventListener("click",async()=>{
+  setTaskError("");
+  const name=$("taskName").value.trim();if(!name){setTaskError("Введите название");return}
+  const task={name,icon:$("taskIcon").value||"gear.svg",type:$("taskType").value,note:$("taskNote").value.trim()};
+  if(state.modalType==="planned"){if(!$("taskDate").value){setTaskError("Выберите дату");return}task.date=$("taskDate").value}
+  try{
+    if(state.editing) await updateTask(state.modalType,state.editing.id,task);
+    else if(state.modalType==="daily") await createDaily(task);
+    else await createPlanned(task);
+    closeTaskModal();render();
+  }catch(e){console.error(e);setTaskError("Не удалось сохранить. Проверь Firestore Rules.")}
+});
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>{
+  const id=b.dataset.close;if(id==="taskModal")closeTaskModal();else if(id==="calendarModal")closeCalendar();
+}));
+$("taskModal").addEventListener("click",e=>{if(e.target===$("taskModal"))closeTaskModal()});
+$("calendarModal").addEventListener("click",e=>{if(e.target===$("calendarModal"))closeCalendar()});

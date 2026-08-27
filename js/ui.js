@@ -1,11 +1,126 @@
-import {state} from "./state.js";
-export const $=id=>document.getElementById(id);export const key=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`};
-export const fmtDate=k=>new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
-export const fmtTime=s=>{s=Math.max(0,Math.floor(s));return `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor(s%3600/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`};
-const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-export function render(onToggle,onDelete,onValue,onTimer,onEdit){const d=key(state.selectedDate);$("todayTitle").textContent=state.selectedDate.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});$("selectedDayLabel").textContent=d===key(new Date())?"Сегодня":fmtDate(d);$("todayButton").hidden=d===key(new Date());
-const list=$("dailyList");list.innerHTML="";for(const t of state.dailyTasks.filter(x=>x.active!==false)){const v=state.completions[t.id]?.[d]??(t.type==="timer"?0:"");const done=t.type==="timer"?Number(v)>=Number(t.target||3600):t.type==="value"?String(v).trim()!=="":!!v;const e=document.createElement("div");e.className="task"+(done?" completed":"");e.innerHTML=`<button class="checkbox">${done?"✓":""}</button><div class="task-icon">${t.icon||"🎮"}</div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta">${esc(t.note|| (t.type==="timer"?"таймер 1 час":t.type==="value"?(v?"значение сохранено":"введите значение"):"каждый день"))}</div></div>`;e.querySelector(".checkbox").onclick=()=>onToggle(t);if(t.type==="value"){const w=document.createElement("div");w.className="value-editor";w.innerHTML=`<input class="value-input" placeholder="значение" value="${esc(v)}"><button class="value-save">OK</button>`;w.querySelector(".value-save").onclick=()=>onValue(t,w.querySelector("input").value.trim());w.querySelector("input").onkeydown=z=>z.key==="Enter"&&onValue(t,z.target.value.trim());e.appendChild(w)}if(t.type==="timer"){const w=document.createElement("div");w.className="timer";w.innerHTML=`<span class="timer-value">${fmtTime(v)}</span><button class="timer-button">${state.timers[t.id]?.date===d?"Стоп":"Старт"}</button><button class="timer-reset">↺</button>`;w.querySelector(".timer-button").onclick=()=>onTimer(t,"toggle");w.querySelector(".timer-reset").onclick=()=>onTimer(t,"reset");e.appendChild(w)}const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>onEdit(t,"daily");a.children[1].onclick=()=>onDelete(t);e.appendChild(a);list.appendChild(e)}$("dailyCount").textContent=state.dailyTasks.length;
-const pl=$("plannedList");pl.innerHTML="";const future=state.plannedTasks.filter(t=>t.date>=key(new Date())).sort((a,b)=>a.date.localeCompare(b.date));for(const t of future.slice(0,10)){const x=new Date(t.date+"T00:00:00"),e=document.createElement("div");e.className="task"+(t.completed?" completed":"");e.innerHTML=`<button class="checkbox">${t.completed?"✓":""}</button><div class="planned-date"><b>${x.getDate()}</b><small>${x.toLocaleDateString("ru-RU",{month:"short"})}</small></div><div class="task-icon">${t.icon||"🎯"}</div><div class="planned-content"><div class="planned-name">${esc(t.name)}</div><div class="planned-meta">${fmtDate(t.date)}${t.note?" · "+esc(t.note):""}</div></div>`;e.querySelector(".checkbox").onclick=()=>onToggle(t);const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>onEdit(t,"planned");a.children[1].onclick=()=>onDelete(t);e.appendChild(a);pl.appendChild(e)}$("plannedCount").textContent=future.length;renderProgress();renderStats();renderSpecial()}
-function renderProgress(){const d=key(state.selectedDate),a=state.dailyTasks.filter(x=>x.active!==false);let n=0;for(const t of a){const v=state.completions[t.id]?.[d];if(t.type==="timer"?Number(v)>=Number(t.target||3600):t.type==="value"?String(v??"").trim()!=="":!!v)n++}const p=a.length?Math.round(n/a.length*100):0;$("progressBar").style.width=p+"%";$("todayPercent").textContent=p+"%";$("progressText").textContent=`${n} из ${a.length} выполнено`}
-function renderStats(){let n=0;for(const id in state.completions)for(const d in state.completions[id])if(state.completions[id][d])n++;$("statCompleted").textContent=n;$("statPercent").textContent="—";$("statStreak").textContent="—"}
-function renderSpecial(){const d=key(state.selectedDate),c=$("todaySpecialList");c.innerHTML="";state.plannedTasks.filter(t=>t.date===d).forEach(t=>{const e=document.createElement("div");e.className="task"+(t.completed?" completed":"");e.innerHTML=`<button class="checkbox">${t.completed?"✓":""}</button><div class="task-icon">${t.icon||"🎯"}</div><div class="task-content"><div class="task-name">${esc(t.name)}</div><div class="task-meta">${fmtDate(d)}</div></div>`;e.querySelector(".checkbox").onclick=()=>window.__togglePlanned(t);const a=document.createElement("div");a.className="task-actions";a.innerHTML='<button class="task-action edit-action">✎</button><button class="task-action">×</button>';a.children[0].onclick=()=>window.__edit(t,"planned");a.children[1].onclick=()=>window.__deletePlanned(t);e.appendChild(a);c.appendChild(e)});$("todaySpecialSection").hidden=!c.children.length}
+import { state } from "./state.js";
+
+export const $ = id => document.getElementById(id);
+export const todayKey = () => dateKey(new Date());
+export function dateKey(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+export function fromKey(k){ return new Date(k+"T00:00:00"); }
+export function formatDate(k){ return fromKey(k).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"}); }
+export function formatShort(k){ return fromKey(k).toLocaleDateString("ru-RU",{day:"numeric",month:"short"}); }
+export function timeText(sec){
+  sec=Math.max(0,Math.floor(sec||0));
+  const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return h ? `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+export function isDone(task,date){
+  const v=state.completions[task.id]?.[date];
+  if(task.type==="timer") return Number(v||0)>=3600;
+  if(task.type==="value") return String(v??"").trim()!=="";
+  return !!v;
+}
+export function iconSrc(icon){
+  return icon && /\.(svg|png|webp|jpg|jpeg)$/i.test(icon) ? `./icons/${icon}` : null;
+}
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
+function iconHTML(icon){
+  const src=iconSrc(icon);
+  if(src) return `<img src="${src}" alt="">`;
+  return `<span class="emoji">${safe(icon||"🎮")}</span>`;
+}
+
+export function renderAll(handlers){
+  renderDate();
+  renderDaily(handlers);
+  renderPlanned(handlers);
+  renderSelectedPlanned(handlers);
+  renderProgress();
+  renderStats();
+}
+function renderDate(){
+  const d=state.selectedDate,k=dateKey(d),today=todayKey(),isToday=k===today;
+  $("dateTitle").textContent=d.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"});
+  $("selectedDateLabel").textContent=isToday?"Сегодня":formatDate(k);
+  $("todayButton").hidden=isToday;
+}
+function renderDaily(h){
+  const list=$("dailyList"); list.innerHTML="";
+  const day=dateKey(state.selectedDate);
+  const tasks=state.daily.filter(t=>t.active!==false);
+  for(const task of tasks){
+    const done=isDone(task,day),value=state.completions[task.id]?.[day] ?? "";
+    const row=document.createElement("div"); row.className="task"+(done?" completed":"");
+
+    const check=document.createElement("button"); check.className="check-button"; check.textContent=done?"✓":""; check.title=done?"Снять отметку":"Отметить"; check.onclick=()=>h.toggle(task); row.append(check);
+    const ico=document.createElement("div"); ico.className="task-icon"; ico.innerHTML=iconHTML(task.icon); row.append(ico);
+
+    const main=document.createElement("div"); main.className="task-main";
+    let meta=task.note || (task.type==="timer"?"таймер 1 час":task.type==="value"?(value?`значение: ${safe(value)}`:"введите значение"):"каждый день");
+    main.innerHTML=`<div class="task-name">${safe(task.name)}</div><div class="task-meta">${safe(meta)}</div>`; row.append(main);
+
+    if(task.type==="timer") row.append(timerControls(task,day,Number(value||0),h));
+    if(task.type==="value") row.append(valueControls(task,day,value,h));
+
+    const actions=document.createElement("div"); actions.className="task-actions";
+    const edit=document.createElement("button"); edit.className="task-action"; edit.title="Редактировать"; edit.textContent="✎"; edit.onclick=()=>h.edit(task,"daily");
+    const del=document.createElement("button"); del.className="task-action delete"; del.title="Удалить"; del.textContent="×"; del.onclick=()=>h.remove(task,"daily");
+    actions.append(edit,del); row.append(actions);
+    list.append(row);
+  }
+  $("dailyCount").textContent=tasks.length;
+}
+function timerControls(task,day,value,h){
+  const box=document.createElement("div"); box.className="timer-box";
+  const active=state.timers[task.id]?.date===day;
+  const elapsed=active ? value + Math.floor((Date.now()-state.timers[task.id].startedAt)/1000) : value;
+  const t=document.createElement("span"); t.className="timer-time"; t.textContent=timeText(elapsed); box.append(t);
+  const start=document.createElement("button"); start.className="timer-start"; start.textContent=active?"Стоп":"Старт"; start.onclick=()=>h.timer(task);
+  const reset=document.createElement("button"); reset.className="timer-reset"; reset.title="Сбросить таймер"; reset.textContent="↺"; reset.onclick=()=>h.resetTimer(task);
+  box.append(start,reset);
+  return box;
+}
+function valueControls(task,day,value,h){
+  const box=document.createElement("div"); box.className="task-value";
+  const input=document.createElement("input"); input.className="value-input"; input.placeholder="значение"; input.value=value||""; input.title="Введите значение";
+  const save=document.createElement("button"); save.className="value-save"; save.textContent="OK"; save.onclick=()=>h.value(task,input.value.trim());
+  input.onkeydown=e=>{if(e.key==="Enter")h.value(task,input.value.trim())};
+  box.append(input,save); return box;
+}
+function plannedRow(task,h){
+  const row=document.createElement("div"); row.className="task"+(task.completed?" completed":"");
+  const check=document.createElement("button"); check.className="check-button"; check.textContent=task.completed?"✓":""; check.onclick=()=>h.togglePlanned(task); row.append(check);
+  const d=fromKey(task.date),date=document.createElement("div");date.className="planned-date";date.innerHTML=`<b>${d.getDate()}</b><small>${d.toLocaleDateString("ru-RU",{month:"short"})}</small>`;row.append(date);
+  const ico=document.createElement("div");ico.className="task-icon";ico.innerHTML=iconHTML(task.icon);row.append(ico);
+  const main=document.createElement("div");main.className="planned-main";main.innerHTML=`<div class="task-name">${safe(task.name)}</div><div class="task-meta">${safe(formatShort(task.date)+(task.note?" · "+task.note:""))}</div>`;row.append(main);
+  const actions=document.createElement("div");actions.className="task-actions";
+  const edit=document.createElement("button");edit.className="task-action";edit.title="Редактировать";edit.textContent="✎";edit.onclick=()=>h.edit(task,"planned");
+  const del=document.createElement("button");del.className="task-action delete";del.textContent="×";del.onclick=()=>h.remove(task,"planned");actions.append(edit,del);row.append(actions);
+  return row;
+}
+function renderPlanned(h){
+  const list=$("plannedList");list.innerHTML="";const today=todayKey();
+  const items=state.planned.filter(t=>t.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  items.slice(0,10).forEach(t=>list.append(plannedRow(t,h)));
+  $("plannedCount").textContent=items.length;
+}
+function renderSelectedPlanned(h){
+  const list=$("selectedPlannedList"),day=dateKey(state.selectedDate);list.innerHTML="";
+  const items=state.planned.filter(t=>t.date===day);
+  items.forEach(t=>list.append(plannedRow(t,h)));
+  $("selectedPlannedCount").textContent=items.length;
+  $("selectedPlannedSection").hidden=!items.length;
+}
+function renderProgress(){
+  const day=dateKey(state.selectedDate),tasks=state.daily.filter(t=>t.active!==false),done=tasks.filter(t=>isDone(t,day)).length,p=tasks.length?Math.round(done/tasks.length*100):0;
+  $("percent").textContent=p+"%";$("progressBar").style.width=p+"%";$("progressText").textContent=`${done} из ${tasks.length} выполнено`;
+}
+function renderStats(){
+  let completed=0;for(const id in state.completions)for(const d in state.completions[id])if(state.completions[id][d])completed++;
+  $("completedCount").textContent=completed;
+  const days=[];for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);days.push(dateKey(d))}
+  let total=state.daily.length*7,done=0;for(const t of state.daily)for(const d of days)if(isDone(t,d))done++;
+  $("weekPercent").textContent=(total?Math.round(done/total*100):0)+"%";
+  let streak=0;for(let i=0;i<365;i++){const d=new Date();d.setDate(d.getDate()-i);const k=dateKey(d);if(state.daily.length&&state.daily.every(t=>isDone(t,k)))streak++;else break}
+  $("streak").textContent=streak;
+}
