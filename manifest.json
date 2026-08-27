@@ -1,0 +1,11 @@
+{
+  "name": "KOR Daily",
+  "short_name": "KOR Daily",
+  "description": "Ежедневный трекер заданий KOR.RU",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f5f2",
+  "theme_color": "#f7f5f2",
+  "orientation": "portrait",
+  "icons": []
+}
