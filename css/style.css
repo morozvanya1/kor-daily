@@ -13,3 +13,8 @@
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:12px}.calendar-weekday{text-align:center;color:var(--muted);font-size:8px;padding-bottom:3px}.calendar-day-cell{aspect-ratio:1;border:0;background:#f5f2ef;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px}.calendar-day-cell.today{background:var(--accent-light);color:var(--accent);font-weight:800}.calendar-day-cell.complete{background:var(--green-light);color:var(--green);font-weight:800}.calendar-day{margin-top:12px;font-size:11px;color:var(--muted)}.calendar-title{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px}.calendar-nav{border:0;background:#f1eeeb;border-radius:8px;width:26px;height:26px}
 .error{margin-top:8px;color:#c74661;font-size:10px}
 @media(min-width:700px){body{background:#eae6e1}.app{max-width:500px;padding-top:7px}}
+
+/* Принудительно скрываем все элементы с атрибутом hidden */
+[hidden] {
+    display: none !important;
+}
