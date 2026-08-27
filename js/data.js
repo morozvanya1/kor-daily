@@ -14,7 +14,20 @@ export async function loadAll(){
   state.daily=[]; state.planned=[]; state.completions={};
   dailySnap.forEach(x=>state.daily.push({id:x.id,...x.data()}));
   plannedSnap.forEach(x=>state.planned.push({id:x.id,...x.data()}));
-  completionSnap.forEach(x=>state.completions[x.id]=x.data());
+
+  // Firestore stores completions as:
+  // completions/{YYYY-MM-DD} -> { taskId: value }
+  // The UI works with:
+  // completions[taskId][YYYY-MM-DD] -> value
+  // Convert the database structure back into the UI structure on every load.
+  completionSnap.forEach(dayDoc=>{
+    const date=dayDoc.id;
+    const values=dayDoc.data() || {};
+    for(const [taskId,value] of Object.entries(values)){
+      if(!state.completions[taskId]) state.completions[taskId]={};
+      state.completions[taskId][date]=value;
+    }
+  });
 }
 
 export async function ensureDefaults(){
