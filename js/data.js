@@ -1,4 +1,5 @@
 import {
+
   collection,
   doc,
   getDocs,
@@ -6,49 +7,81 @@ import {
   updateDoc,
   deleteDoc,
   setDoc
+
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-import { db } from "./firebase.js";
-import { state } from "./state.js";
+
+import {
+  db
+} from "./firebase.js";
 
 
-const collectionRef = name =>
-  collection(
-    db,
-    "users",
-    state.user.uid,
-    name
-  );
+import {
+  state
+} from "./state.js";
 
 
-const documentRef = (name, id) =>
-  doc(
-    db,
-    "users",
-    state.user.uid,
-    name,
-    id
-  );
+const collectionRef =
+  name =>
+    collection(
+      db,
+      "users",
+      state.user.uid,
+      name
+    );
 
+
+const documentRef =
+  (name, id) =>
+    doc(
+      db,
+      "users",
+      state.user.uid,
+      name,
+      id
+    );
+
+
+/* =========================================
+   LOAD
+========================================= */
 
 export async function loadAll() {
 
   const [
+
     dailySnap,
+
     plannedSnap,
-    completionSnap
+
+    completionSnap,
+
+    goldSnap
+
   ] = await Promise.all([
 
     getDocs(
-      collectionRef("dailyTasks")
+      collectionRef(
+        "dailyTasks"
+      )
     ),
 
     getDocs(
-      collectionRef("plannedTasks")
+      collectionRef(
+        "plannedTasks"
+      )
     ),
 
     getDocs(
-      collectionRef("completions")
+      collectionRef(
+        "completions"
+      )
+    ),
+
+    getDocs(
+      collectionRef(
+        "dailyGold"
+      )
     )
 
   ]);
@@ -60,54 +93,160 @@ export async function loadAll() {
 
   state.completions = {};
 
-
-  dailySnap.forEach(x => {
-
-    const data = x.data();
-
-    state.daily.push({
-
-      id: x.id,
-
-      ...data,
-
-      type:
-        data.type === "timer"
-          ? "check"
-          : (data.type || "check"),
-
-      required:
-        data.required !== false,
-
-      order:
-        Number.isFinite(data.order)
-          ? data.order
-          : (Number(data.createdAt) || Date.now())
-
-    });
-
-  });
+  state.dailyGold = {};
 
 
-  plannedSnap.forEach(x => {
+  /* DAILY */
 
-    state.planned.push({
+  dailySnap.forEach(
+    snapshot => {
 
-      id: x.id,
-
-      ...x.data()
-
-    });
-
-  });
+      const data =
+        snapshot.data();
 
 
-  completionSnap.forEach(x => {
+      state.daily.push({
 
-    state.completions[x.id] =
-      x.data();
+        id:
+          snapshot.id,
 
-  });
+        ...data,
+
+        /*
+         * Старые таймеры
+         * автоматически превращаем
+         * в обычную отметку.
+         */
+
+        type:
+          data.type === "timer"
+            ? "check"
+            : (
+                data.type ||
+                "check"
+              ),
+
+        required:
+          data.required !== false,
+
+        gold:
+          Number(
+            data.gold
+          ) || 0,
+
+        order:
+          Number.isFinite(
+            data.order
+          )
+            ? data.order
+            : (
+                Number(
+                  data.createdAt
+                ) ||
+                Date.now()
+              )
+
+      });
+
+    }
+  );
+
+
+  /* PLANNED */
+
+  plannedSnap.forEach(
+    snapshot => {
+
+      state.planned.push({
+
+        id:
+          snapshot.id,
+
+        ...snapshot.data()
+
+      });
+
+    }
+  );
+
+
+  /*
+   * FIRESTORE ХРАНИТ:
+   *
+   * completions/
+   *   2026-08-29
+   *      taskId: true
+   *
+   * Поэтому здесь преобразуем:
+   *
+   * день -> задания
+   *
+   * в:
+   *
+   * задание -> дни
+   */
+
+  completionSnap.forEach(
+    snapshot => {
+
+      const date =
+        snapshot.id;
+
+
+      const dayData =
+        snapshot.data();
+
+
+      Object.entries(
+        dayData
+      ).forEach(
+        ([taskId, value]) => {
+
+          if (
+            !state.completions[
+              taskId
+            ]
+          ) {
+
+            state.completions[
+              taskId
+            ] = {};
+
+          }
+
+
+          state.completions[
+            taskId
+          ][date] =
+            value;
+
+        }
+      );
+
+    }
+  );
+
+
+  /*
+   * Голд за каждый день
+   */
+
+  goldSnap.forEach(
+    snapshot => {
+
+      const data =
+        snapshot.data();
+
+
+      state.dailyGold[
+        snapshot.id
+      ] =
+        Number(
+          data.gold
+        ) || 0;
+
+    }
+  );
 
 
   sortDaily();
@@ -115,37 +254,75 @@ export async function loadAll() {
 }
 
 
+/* =========================================
+   DEFAULTS
+========================================= */
+
 export async function ensureDefaults() {
 
-  if (state.daily.length) {
+  if (
+    state.daily.length
+  ) {
+
     return;
+
   }
 
 
   const defaults = [
 
     {
-      name: "Зарядка кристаллов",
-      type: "check",
-      required: true,
-      gold: 0,
-      note: ""
+      name:
+        "Механорум",
+
+      type:
+        "check",
+
+      required:
+        true,
+
+      gold:
+        0,
+
+      note:
+        ""
+
     },
 
     {
-      name: "Задание на 2 подарка",
-      type: "check",
-      required: true,
-      gold: 0,
-      note: ""
+      name:
+        "Лотерея",
+
+      type:
+        "check",
+
+      required:
+        true,
+
+      gold:
+        0,
+
+      note:
+        ""
+
     },
 
     {
-      name: "Механорум",
-      type: "check",
-      required: true,
-      gold: 0,
-      note: ""
+      name:
+        "Кристаллы",
+
+      type:
+        "check",
+
+      required:
+        true,
+
+      gold:
+        0,
+
+      note:
+        ""
+
     }
 
   ];
@@ -161,9 +338,11 @@ export async function ensureDefaults() {
 
       ...defaults[i],
 
-      active: true,
+      active:
+        true,
 
-      order: i,
+      order:
+        i,
 
       createdAt:
         Date.now() + i
@@ -173,14 +352,17 @@ export async function ensureDefaults() {
 
     const ref =
       await addDoc(
-        collectionRef("dailyTasks"),
+        collectionRef(
+          "dailyTasks"
+        ),
         task
       );
 
 
     state.daily.push({
 
-      id: ref.id,
+      id:
+        ref.id,
 
       ...task
 
@@ -194,48 +376,82 @@ export async function ensureDefaults() {
 }
 
 
-function nextOrder(required) {
+/* =========================================
+   ORDER
+========================================= */
+
+function nextOrder(
+  required
+) {
 
   const items =
     state.daily.filter(
       task =>
-        task.required === required
+        task.required ===
+        required
     );
 
 
-  return items.length
-    ? Math.max(
-        ...items.map(
-          task =>
-            Number(task.order) || 0
-        )
-      ) + 1
-    : 0;
+  if (
+    !items.length
+  ) {
+
+    return 0;
+
+  }
+
+
+  return (
+    Math.max(
+      ...items.map(
+        task =>
+          Number(
+            task.order
+          ) || 0
+      )
+    ) + 1
+  );
 
 }
 
+
+/* =========================================
+   CREATE DAILY
+========================================= */
 
 export async function createDaily(
   task
 ) {
 
-  const isRequired =
+  const required =
     task.required !== false;
 
 
   const payload = {
 
-    ...task,
+    name:
+      task.name,
 
-    active: true,
+    type:
+      task.type || "check",
 
-    required: isRequired,
+    note:
+      task.note || "",
+
+    required,
 
     gold:
-      Number(task.gold) || 0,
+      Number(
+        task.gold
+      ) || 0,
+
+    active:
+      true,
 
     order:
-      nextOrder(isRequired),
+      nextOrder(
+        required
+      ),
 
     createdAt:
       Date.now()
@@ -245,14 +461,17 @@ export async function createDaily(
 
   const ref =
     await addDoc(
-      collectionRef("dailyTasks"),
+      collectionRef(
+        "dailyTasks"
+      ),
       payload
     );
 
 
   state.daily.push({
 
-    id: ref.id,
+    id:
+      ref.id,
 
     ...payload
 
@@ -264,38 +483,61 @@ export async function createDaily(
 }
 
 
+/* =========================================
+   CREATE PLANNED
+========================================= */
+
 export async function createPlanned(
   task
 ) {
 
+  const payload = {
+
+    name:
+      task.name,
+
+    type:
+      task.type || "check",
+
+    note:
+      task.note || "",
+
+    date:
+      task.date,
+
+    completed:
+      false,
+
+    createdAt:
+      Date.now()
+
+  };
+
+
   const ref =
     await addDoc(
-      collectionRef("plannedTasks"),
-      {
-
-        ...task,
-
-        completed: false,
-
-        createdAt:
-          Date.now()
-
-      }
+      collectionRef(
+        "plannedTasks"
+      ),
+      payload
     );
 
 
   state.planned.push({
 
-    id: ref.id,
+    id:
+      ref.id,
 
-    ...task,
-
-    completed: false
+    ...payload
 
   });
 
 }
 
+
+/* =========================================
+   UPDATE
+========================================= */
 
 export async function updateTask(
   kind,
@@ -303,7 +545,7 @@ export async function updateTask(
   data
 ) {
 
-  const name =
+  const collectionName =
     kind === "daily"
       ? "dailyTasks"
       : "plannedTasks";
@@ -312,7 +554,7 @@ export async function updateTask(
   await updateDoc(
 
     documentRef(
-      name,
+      collectionName,
       id
     ),
 
@@ -327,17 +569,19 @@ export async function updateTask(
       : state.planned;
 
 
-  const obj =
+  const task =
     arr.find(
       item =>
         item.id === id
     );
 
 
-  if (obj) {
+  if (
+    task
+  ) {
 
     Object.assign(
-      obj,
+      task,
       data
     );
 
@@ -355,12 +599,16 @@ export async function updateTask(
 }
 
 
+/* =========================================
+   DELETE
+========================================= */
+
 export async function deleteTask(
   kind,
   id
 ) {
 
-  const name =
+  const collectionName =
     kind === "daily"
       ? "dailyTasks"
       : "plannedTasks";
@@ -369,7 +617,7 @@ export async function deleteTask(
   await deleteDoc(
 
     documentRef(
-      name,
+      collectionName,
       id
     )
 
@@ -399,6 +647,10 @@ export async function deleteTask(
 }
 
 
+/* =========================================
+   REORDER
+========================================= */
+
 export async function reorderDaily(
   required,
   orderedIds
@@ -406,7 +658,10 @@ export async function reorderDaily(
 
   const updates =
     orderedIds.map(
-      (id, index) => {
+      (
+        id,
+        index
+      ) => {
 
         const task =
           state.daily.find(
@@ -415,7 +670,9 @@ export async function reorderDaily(
           );
 
 
-        if (task) {
+        if (
+          task
+        ) {
 
           task.order =
             index;
@@ -431,7 +688,8 @@ export async function reorderDaily(
           ),
 
           {
-            order: index
+            order:
+              index
           }
 
         );
@@ -454,25 +712,51 @@ export function sortDaily() {
 
   state.daily.sort(
 
-    (a, b) => (
+    (
+      a,
+      b
+    ) => {
 
-      a.required === b.required
+      if (
+        a.required ===
+        b.required
+      ) {
 
-        ? (
-            (Number(a.order) || 0) -
-            (Number(b.order) || 0)
+        return (
+
+          (
+            Number(
+              a.order
+            ) || 0
           )
 
-        : a.required
-          ? -1
-          : 1
+          -
 
-    )
+          (
+            Number(
+              b.order
+            ) || 0
+          )
+
+        );
+
+      }
+
+
+      return a.required
+        ? -1
+        : 1;
+
+    }
 
   );
 
 }
 
+
+/* =========================================
+   COMPLETION
+========================================= */
 
 export async function saveCompletion(
   taskId,
@@ -481,34 +765,54 @@ export async function saveCompletion(
 ) {
 
   if (
-    !state.completions[taskId]
+    !state.completions[
+      taskId
+    ]
   ) {
 
-    state.completions[taskId] = {};
+    state.completions[
+      taskId
+    ] = {};
 
   }
 
 
-  state.completions[taskId][date] =
+  state.completions[
+    taskId
+  ][date] =
     value;
 
+
+  /*
+   * Перед записью собираем
+   * все значения этой даты.
+   */
 
   const dayData = {};
 
 
   for (
-    const id of Object.keys(
+    const taskId
+    of Object.keys(
       state.completions
     )
   ) {
 
+    const valueForDay =
+      state.completions[
+        taskId
+      ][date];
+
+
     if (
-      state.completions[id][date]
-      !== undefined
+      valueForDay !==
+      undefined
     ) {
 
-      dayData[id] =
-        state.completions[id][date];
+      dayData[
+        taskId
+      ] =
+        valueForDay;
 
     }
 
@@ -525,7 +829,52 @@ export async function saveCompletion(
     dayData,
 
     {
-      merge: true
+      merge:
+        true
+    }
+
+  );
+
+}
+
+
+/* =========================================
+   DAILY GOLD
+========================================= */
+
+export async function saveDailyGold(
+  date,
+  gold
+) {
+
+  const value =
+    Math.max(
+      0,
+      Number(gold) || 0
+    );
+
+
+  state.dailyGold[
+    date
+  ] =
+    value;
+
+
+  await setDoc(
+
+    documentRef(
+      "dailyGold",
+      date
+    ),
+
+    {
+      gold:
+        value
+    },
+
+    {
+      merge:
+        true
     }
 
   );
