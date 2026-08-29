@@ -1,9 +1,13 @@
-import { state } from "./state.js";
+import {
+  state
+} from "./state.js";
 
 
 export const $ =
   id =>
-    document.getElementById(id);
+    document.getElementById(
+      id
+    );
 
 
 export const todayKey =
@@ -13,72 +17,95 @@ export const todayKey =
     );
 
 
-export function dateKey(d) {
+export function dateKey(
+  date
+) {
 
   const y =
-    d.getFullYear();
+    date.getFullYear();
 
 
   const m =
     String(
-      d.getMonth() + 1
+      date.getMonth() + 1
     ).padStart(
       2,
       "0"
     );
 
 
-  const day =
+  const d =
     String(
-      d.getDate()
+      date.getDate()
     ).padStart(
       2,
       "0"
     );
 
 
-  return `${y}-${m}-${day}`;
+  return `${y}-${m}-${d}`;
 
 }
 
 
-export function fromKey(k) {
+export function fromKey(
+  key
+) {
 
   return new Date(
-    k + "T00:00:00"
+    key +
+    "T00:00:00"
   );
 
 }
 
 
-export function formatDate(k) {
+export function formatDate(
+  key
+) {
 
-  return fromKey(k)
-    .toLocaleDateString(
-      "ru-RU",
-      {
-        weekday: "long",
-        day: "numeric",
-        month: "long"
-      }
-    );
+  return fromKey(
+    key
+  ).toLocaleDateString(
+    "ru-RU",
+    {
+      weekday:
+        "long",
+
+      day:
+        "numeric",
+
+      month:
+        "long"
+    }
+  );
+
+}
+
+
+export function formatShort(
+  key
+) {
+
+  return fromKey(
+    key
+  ).toLocaleDateString(
+    "ru-RU",
+    {
+      day:
+        "numeric",
+
+      month:
+        "short"
+    }
+  );
 
 }
 
 
-export function formatShort(k) {
-
-  return fromKey(k)
-    .toLocaleDateString(
-      "ru-RU",
-      {
-        day: "numeric",
-        month: "short"
-      }
-    );
-
-}
-
+/* =========================================
+   DONE
+========================================= */
 
 export function isDone(
   task,
@@ -93,13 +120,16 @@ export function isDone(
 
 
   if (
-    task.type === "value"
+    task.type ===
+    "value"
   ) {
 
     return (
+
       String(
         value ?? ""
       ).trim() !== ""
+
     );
 
   }
@@ -110,24 +140,50 @@ export function isDone(
 }
 
 
-function safe(s) {
+/* =========================================
+   SAFE
+========================================= */
+
+function safe(
+  value
+) {
 
   return String(
-    s ?? ""
+    value ?? ""
   ).replace(
     /[&<>"']/g,
-    c =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      })[c]
+
+    char => (
+
+      {
+        "&":
+          "&amp;",
+
+        "<":
+          "&lt;",
+
+        ">":
+          "&gt;",
+
+        '"':
+          "&quot;",
+
+        "'":
+          "&#039;"
+
+      }[
+        char
+      ]
+
+    )
   );
 
 }
 
+
+/* =========================================
+   DAILY ROW
+========================================= */
 
 function dailyRow(
   task,
@@ -144,7 +200,8 @@ function dailyRow(
     state
       .completions[
         task.id
-      ]?.[day] ?? "";
+      ]?.[day] ??
+    "";
 
 
   const done =
@@ -169,16 +226,21 @@ function dailyRow(
     );
 
 
-  row.draggable = true;
+  row.draggable =
+    true;
+
 
   row.dataset.id =
     task.id;
+
 
   row.dataset.required =
     task.required
       ? "true"
       : "false";
 
+
+  /* DRAG */
 
   const drag =
     document.createElement(
@@ -189,8 +251,10 @@ function dailyRow(
   drag.className =
     "drag-handle";
 
+
   drag.textContent =
     "⋮⋮";
+
 
   drag.title =
     "Перетащить";
@@ -201,6 +265,8 @@ function dailyRow(
   );
 
 
+  /* CHECK */
+
   const check =
     document.createElement(
       "button"
@@ -210,16 +276,11 @@ function dailyRow(
   check.className =
     "check-button";
 
+
   check.textContent =
     done
       ? "✓"
       : "";
-
-
-  check.title =
-    done
-      ? "Снять отметку"
-      : "Отметить";
 
 
   check.onclick =
@@ -234,6 +295,8 @@ function dailyRow(
   );
 
 
+  /* MAIN */
+
   const main =
     document.createElement(
       "div"
@@ -247,18 +310,25 @@ function dailyRow(
   let meta;
 
 
-  if (task.note) {
+  if (
+    task.note
+  ) {
 
     meta =
       task.note;
 
   } else if (
-    task.type === "value"
+    task.type ===
+    "value"
   ) {
 
     meta =
       value
-        ? `значение: ${safe(value)}`
+
+        ? `значение: ${safe(
+            value
+          )}`
+
         : "введите значение";
 
   } else {
@@ -270,7 +340,9 @@ function dailyRow(
 
 
   const gold =
-    Number(task.gold) || 0;
+    Number(
+      task.gold
+    ) || 0;
 
 
   const goldText =
@@ -298,21 +370,28 @@ function dailyRow(
   );
 
 
+  /* VALUE */
+
   if (
-    task.type === "value"
+    task.type ===
+    "value"
   ) {
 
     row.append(
+
       valueControls(
         task,
         day,
         value,
         handlers
       )
+
     );
 
   }
 
+
+  /* ACTIONS */
 
   const actions =
     document.createElement(
@@ -333,8 +412,10 @@ function dailyRow(
   edit.className =
     "task-action";
 
+
   edit.title =
     "Редактировать";
+
 
   edit.textContent =
     "✎";
@@ -357,8 +438,6 @@ function dailyRow(
   del.className =
     "task-action delete";
 
-  del.title =
-    "Удалить";
 
   del.textContent =
     "×";
@@ -383,9 +462,11 @@ function dailyRow(
   );
 
 
+  /* DRAG */
+
   row.addEventListener(
     "dragstart",
-    e => {
+    event => {
 
       state.drag = {
 
@@ -406,11 +487,11 @@ function dailyRow(
       );
 
 
-      e.dataTransfer.effectAllowed =
+      event.dataTransfer.effectAllowed =
         "move";
 
 
-      e.dataTransfer.setData(
+      event.dataTransfer.setData(
         "text/plain",
         task.id
       );
@@ -437,8 +518,8 @@ function dailyRow(
           ".drop-target"
         )
         .forEach(
-          element =>
-            element.classList.remove(
+          item =>
+            item.classList.remove(
               "drop-target"
             )
         );
@@ -449,13 +530,18 @@ function dailyRow(
 
   row.addEventListener(
     "dragover",
-    e => {
+    event => {
 
       if (
+
         !state.drag ||
-        state.drag.id === task.id ||
+
+        state.drag.id ===
+          task.id ||
+
         state.drag.required !==
           task.required
+
       ) {
 
         return;
@@ -463,7 +549,7 @@ function dailyRow(
       }
 
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       row.classList.add(
@@ -476,18 +562,21 @@ function dailyRow(
 
   row.addEventListener(
     "dragleave",
-    () =>
+    () => {
+
       row.classList.remove(
         "drop-target"
-      )
+      );
+
+    }
   );
 
 
   row.addEventListener(
     "drop",
-    async e => {
+    async event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       row.classList.remove(
@@ -496,10 +585,15 @@ function dailyRow(
 
 
       if (
+
         !state.drag ||
-        state.drag.id === task.id ||
+
+        state.drag.id ===
+          task.id ||
+
         state.drag.required !==
           task.required
+
       ) {
 
         return;
@@ -525,6 +619,10 @@ function dailyRow(
 
 }
 
+
+/* =========================================
+   VALUE
+========================================= */
 
 function valueControls(
   task,
@@ -565,10 +663,6 @@ function valueControls(
     value || "";
 
 
-  input.title =
-    "Введите значение";
-
-
   const save =
     document.createElement(
       "button"
@@ -592,10 +686,11 @@ function valueControls(
 
 
   input.onkeydown =
-    e => {
+    event => {
 
       if (
-        e.key === "Enter"
+        event.key ===
+        "Enter"
       ) {
 
         handlers.value(
@@ -619,6 +714,10 @@ function valueControls(
 }
 
 
+/* =========================================
+   DAILY LISTS
+========================================= */
+
 function renderDailyList(
   list,
   required,
@@ -631,10 +730,15 @@ function renderDailyList(
 
   const tasks =
     state.daily.filter(
+
       task =>
-        task.active !== false &&
+
+        task.active !==
+          false &&
+
         !!task.required ===
           required
+
     );
 
 
@@ -653,6 +757,10 @@ function renderDailyList(
 
 }
 
+
+/* =========================================
+   MAIN RENDER
+========================================= */
 
 export function renderAll(
   handlers
@@ -677,11 +785,13 @@ export function renderAll(
     );
 
 
-  $("requiredCount").textContent =
+  $("requiredCount")
+    .textContent =
     required;
 
 
-  $("optionalCount").textContent =
+  $("optionalCount")
+    .textContent =
     optional;
 
 
@@ -699,51 +809,86 @@ export function renderAll(
 
   renderStats();
 
-  renderGoldMonth();
+  renderDailyGold();
+
+  renderOptionalVisibility();
 
 }
 
 
+/* =========================================
+   DATE
+========================================= */
+
 function renderDate() {
 
-  const d =
+  const date =
     state.selectedDate;
 
 
-  const k =
-    dateKey(d);
-
-
-  const today =
-    todayKey();
+  const key =
+    dateKey(
+      date
+    );
 
 
   const isToday =
-    k === today;
+    key ===
+    todayKey();
 
 
-  $("dateTitle").textContent =
-    d.toLocaleDateString(
+  $("dateTitle")
+    .textContent =
+    date.toLocaleDateString(
       "ru-RU",
       {
-        weekday: "long",
-        day: "numeric",
-        month: "long"
+        weekday:
+          "long",
+
+        day:
+          "numeric",
+
+        month:
+          "long"
       }
     );
 
 
-  $("selectedDateLabel").textContent =
+  $("selectedDateLabel")
+    .textContent =
     isToday
       ? "Сегодня"
-      : formatDate(k);
+      : formatDate(
+          key
+        );
 
 
-  $("todayButton").hidden =
+  $("todayButton")
+    .hidden =
     isToday;
+
+
+  $("goldDayDate")
+    .textContent =
+    isToday
+      ? "сегодня"
+      : formatDate(
+          key
+        );
+
+
+  $("dailyGoldInput")
+    .value =
+    state.dailyGold[
+      key
+    ] ?? "";
 
 }
 
+
+/* =========================================
+   PLANNED ROW
+========================================= */
 
 function plannedRow(
   task,
@@ -793,33 +938,34 @@ function plannedRow(
   );
 
 
-  const d =
+  const date =
     fromKey(
       task.date
     );
 
 
-  const date =
+  const dateBox =
     document.createElement(
       "div"
     );
 
 
-  date.className =
+  dateBox.className =
     "planned-date";
 
 
-  date.innerHTML = `
+  dateBox.innerHTML = `
 
     <b>
-      ${d.getDate()}
+      ${date.getDate()}
     </b>
 
     <small>
-      ${d.toLocaleDateString(
+      ${date.toLocaleDateString(
         "ru-RU",
         {
-          month: "short"
+          month:
+            "short"
         }
       )}
     </small>
@@ -828,7 +974,7 @@ function plannedRow(
 
 
   row.append(
-    date
+    dateBox
   );
 
 
@@ -853,9 +999,11 @@ function plannedRow(
         formatShort(
           task.date
         ) +
+
         (
           task.note
-            ? " · " + task.note
+            ? " · " +
+              task.note
             : ""
         )
       )}
@@ -889,12 +1037,12 @@ function plannedRow(
     "task-action";
 
 
-  edit.title =
-    "Редактировать";
-
-
   edit.textContent =
     "✎";
+
+
+  edit.title =
+    "Редактировать";
 
 
   edit.onclick =
@@ -943,6 +1091,10 @@ function plannedRow(
 }
 
 
+/* =========================================
+   PLANNED
+========================================= */
+
 function renderPlanned(
   handlers
 ) {
@@ -969,7 +1121,10 @@ function renderPlanned(
       )
 
       .sort(
-        (a, b) =>
+        (
+          a,
+          b
+        ) =>
           a.date.localeCompare(
             b.date
           )
@@ -992,11 +1147,16 @@ function renderPlanned(
     );
 
 
-  $("plannedCount").textContent =
+  $("plannedCount")
+    .textContent =
     items.length;
 
 }
 
+
+/* =========================================
+   SELECTED DAY PLANNED
+========================================= */
 
 function renderSelectedPlanned(
   handlers
@@ -1006,20 +1166,21 @@ function renderSelectedPlanned(
     $("selectedPlannedList");
 
 
+  list.innerHTML =
+    "";
+
+
   const day =
     dateKey(
       state.selectedDate
     );
 
 
-  list.innerHTML =
-    "";
-
-
   const items =
     state.planned.filter(
       task =>
-        task.date === day
+        task.date ===
+        day
     );
 
 
@@ -1046,6 +1207,10 @@ function renderSelectedPlanned(
 }
 
 
+/* =========================================
+   PROGRESS
+========================================= */
+
 function renderProgress() {
 
   const day =
@@ -1057,7 +1222,8 @@ function renderProgress() {
   const tasks =
     state.daily.filter(
       task =>
-        task.active !== false
+        task.active !==
+          false
     );
 
 
@@ -1073,21 +1239,26 @@ function renderProgress() {
 
   const percent =
     tasks.length
+
       ? Math.round(
           done /
           tasks.length *
           100
         )
+
       : 0;
 
 
-  $("percent").textContent =
-    percent + "%";
+  $("percent")
+    .textContent =
+    percent +
+    "%";
 
 
   $("progressBar")
     .style.width =
-    percent + "%";
+    percent +
+    "%";
 
 
   $("progressText")
@@ -1097,23 +1268,32 @@ function renderProgress() {
 }
 
 
+/* =========================================
+   STATS
+========================================= */
+
 function renderStats() {
 
-  let completed = 0;
+  let completed =
+    0;
 
 
   for (
-    const id
+    const taskId
     in state.completions
   ) {
 
     for (
-      const d
-      in state.completions[id]
+      const date
+      in state.completions[
+        taskId
+      ]
     ) {
 
       if (
-        state.completions[id][d]
+        state.completions[
+          taskId
+        ][date]
       ) {
 
         completed++;
@@ -1139,27 +1319,32 @@ function renderStats() {
     i++
   ) {
 
-    const d =
+    const date =
       new Date();
 
 
-    d.setDate(
-      d.getDate() - i
+    date.setDate(
+      date.getDate() -
+      i
     );
 
 
     days.push(
-      dateKey(d)
+      dateKey(
+        date
+      )
     );
 
   }
 
 
   const total =
-    state.daily.length * 7;
+    state.daily.length *
+    7;
 
 
-  let done = 0;
+  let done =
+    0;
 
 
   for (
@@ -1190,18 +1375,31 @@ function renderStats() {
 
   $("weekPercent")
     .textContent =
-    (
-      total
-        ? Math.round(
-            done /
-            total *
-            100
-          )
-        : 0
-    ) + "%";
+
+      (
+
+        total
+
+          ? Math.round(
+              done /
+              total *
+              100
+            )
+
+          : 0
+
+      ) +
+
+      "%";
 
 
-  let streak = 0;
+  /*
+   * Серия считается
+   * только по обязательным.
+   */
+
+  let streak =
+    0;
 
 
   for (
@@ -1210,33 +1408,42 @@ function renderStats() {
     i++
   ) {
 
-    const d =
+    const date =
       new Date();
 
 
-    d.setDate(
-      d.getDate() - i
+    date.setDate(
+      date.getDate() -
+      i
     );
 
 
-    const k =
-      dateKey(d);
+    const key =
+      dateKey(
+        date
+      );
+
+
+    const required =
+      state.daily.filter(
+        task =>
+          task.required !==
+          false
+      );
 
 
     if (
-      state.daily.length &&
-      state.daily
-        .filter(
-          task =>
-            task.required !== false
-        )
-        .every(
-          task =>
-            isDone(
-              task,
-              k
-            )
-        )
+
+      required.length &&
+
+      required.every(
+        task =>
+          isDone(
+            task,
+            key
+          )
+      )
+
     ) {
 
       streak++;
@@ -1257,95 +1464,96 @@ function renderStats() {
 }
 
 
-function renderGoldMonth() {
+/* =========================================
+   GOLD
+========================================= */
 
-  const selected =
+function renderDailyGold() {
+
+  const date =
     state.selectedDate;
 
 
   const year =
-    selected.getFullYear();
+    date.getFullYear();
 
 
   const month =
-    selected.getMonth();
+    date.getMonth();
 
 
-  $("goldMonthLabel")
-    .textContent =
-    `Голд за ${selected.toLocaleDateString(
-      "ru-RU",
-      {
-        month: "long"
-      }
-    )}`;
-
-
-  let total = 0;
+  let total =
+    0;
 
 
   for (
-    const task
-    of state.daily
+    let day = 1;
+    day <= 31;
+    day++
   ) {
 
-    const gold =
-      Number(task.gold) || 0;
+    const current =
+      new Date(
+        year,
+        month,
+        day
+      );
 
 
-    if (!gold)
-      continue;
-
-
-    for (
-      let day = 1;
-      day <= 31;
-      day++
+    if (
+      current.getMonth() !==
+      month
     ) {
 
-      const current =
-        new Date(
-          year,
-          month,
-          day
-        );
-
-
-      if (
-        current.getMonth() !==
-        month
-      ) {
-
-        break;
-
-      }
-
-
-      const k =
-        dateKey(
-          current
-        );
-
-
-      if (
-        isDone(
-          task,
-          k
-        )
-      ) {
-
-        total +=
-          gold;
-
-      }
+      break;
 
     }
+
+
+    const key =
+      dateKey(
+        current
+      );
+
+
+    total +=
+      Number(
+        state.dailyGold[
+          key
+        ] || 0
+      );
 
   }
 
 
-  $("goldMonthTotal")
+  $("goldMonthTop")
     .textContent =
-    String(total);
+    total;
+
+}
+
+
+/* =========================================
+   OPTIONAL VISIBILITY
+========================================= */
+
+export function renderOptionalVisibility() {
+
+  const content =
+    $("optionalContent");
+
+
+  const button =
+    $("toggleOptionalButton");
+
+
+  content.hidden =
+    state.optionalHidden;
+
+
+  button.textContent =
+    state.optionalHidden
+      ? "Показать"
+      : "Скрыть";
 
 }
