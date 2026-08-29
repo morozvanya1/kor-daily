@@ -1,194 +1,836 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f6f3ef">
-  <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./css/style.css">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#f6f3ef"
+  >
+
+  <link
+    rel="manifest"
+    href="./manifest.json"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./css/style.css"
+  >
+
   <title>KOR Daily</title>
+
 </head>
+
+
 <body>
-  <div id="loginScreen" class="login-screen">
-    <div class="login-card">
-      <div class="brand brand-center">
-        <div class="brand-logo">K</div>
-        <div><b>KOR Daily</b><small>задания KOR.RU</small></div>
+
+
+<!-- =========================================
+     LOGIN
+========================================= -->
+
+<div
+  id="loginScreen"
+  class="login-screen"
+>
+
+  <div class="login-card">
+
+    <div class="brand brand-center">
+
+      <div class="brand-logo">
+        K
       </div>
 
-      <div class="auth-fields">
-        <label><span>Email</span><input id="loginEmail" class="input" type="email" autocomplete="email" placeholder="you@example.com"></label>
-        <label><span>Пароль</span><input id="loginPassword" class="input" type="password" autocomplete="current-password" placeholder="Введите пароль"></label>
-        <button id="loginButton" class="button primary">Войти</button>
-        <button id="registerButton" class="button secondary">Создать аккаунт</button>
-        <div id="loginError" class="error"></div>
-      </div>
-    </div>
-  </div>
-
-  <main id="app" hidden>
-    <header class="header">
-      <div class="brand">
-        <div class="brand-logo">K</div>
-        <div><b>KOR Daily</b><small>задания KOR.RU</small></div>
-      </div>
-
-      <div class="header-actions">
-        <button id="calendarButton" class="top-button">Календарь</button>
-        <button id="userButton" class="top-button">Профиль</button>
-      </div>
-    </header>
-
-    <div id="userMenu" class="user-menu" hidden>
-      <div id="userEmail" class="user-email"></div>
-      <button id="logoutButton" class="logout">Выйти</button>
-    </div>
-
-    <section class="date-card">
-      <div class="date-navigation">
-        <button id="prevDayButton" class="day-arrow" title="Предыдущий день">‹</button>
-
-        <button id="dateTitleButton" class="date-title-button">
-          <strong id="dateTitle"></strong>
-          <small>Ежедневные задания KOR.RU</small>
-        </button>
-
-        <button id="nextDayButton" class="day-arrow" title="Следующий день">›</button>
-      </div>
-
-      <div class="progress-row">
-        <span id="selectedDateLabel"></span>
-        <b id="percent">0%</b>
-      </div>
-
-      <div class="progress-track">
-        <div id="progressBar" class="progress-fill"></div>
-      </div>
-
-      <div id="progressText" class="progress-text">0 из 0 выполнено</div>
-      <button id="todayButton" class="today-button" hidden>Вернуться к сегодня</button>
-    </section>
-
-    <section class="section">
-      <div class="section-heading">
-        <b>Обязательные</b>
-        <span id="requiredCount"></span>
-      </div>
-      <div id="requiredList" class="task-list"></div>
-      <button id="addRequiredButton" class="add-line">＋ Добавить обязательное</button>
-    </section>
-
-    <section class="section">
-      <div class="section-heading">
-        <b>Необязательные</b>
-        <span id="optionalCount"></span>
-      </div>
-      <div id="optionalList" class="task-list"></div>
-      <button id="addOptionalButton" class="add-line">＋ Добавить необязательное</button>
-    </section>
-
-    <section id="selectedPlannedSection" class="section" hidden>
-      <div class="section-heading">
-        <b>На этот день</b>
-        <span id="selectedPlannedCount"></span>
-      </div>
-      <div id="selectedPlannedList" class="task-list"></div>
-    </section>
-
-    <section class="section">
-      <div class="section-heading">
-        <b>Предстоящие</b>
-        <span id="plannedCount"></span>
-      </div>
-      <div id="plannedList" class="task-list"></div>
-      <button id="plannedButton" class="add-line">＋ Запланировать на дату</button>
-    </section>
-
-    <section class="gold-card">
       <div>
-        <small id="goldMonthLabel">Голд за месяц</small>
-        <b id="goldMonthTotal">0</b>
-      </div>
-      <div class="gold-caption">сумма наград за выполненные ежедневные</div>
-    </section>
 
-    <section class="stats">
-      <div><b id="streak">0</b><small>дней подряд</small></div>
-      <div><b id="completedCount">0</b><small>выполнено</small></div>
-      <div><b id="weekPercent">0%</b><small>за 7 дней</small></div>
-    </section>
-  </main>
+        <b>
+          KOR Daily
+        </b>
 
-  <div id="taskModal" class="overlay" hidden>
-    <div class="modal">
-      <div class="modal-head">
-        <b id="modalTitle">Новое задание</b>
-        <button class="close-button" data-close="taskModal">×</button>
+        <small>
+          задания KOR.RU
+        </small>
+
       </div>
 
-      <label class="field">
-        <span>Название</span>
-        <input id="taskName" class="input" placeholder="Например, Механорум">
-      </label>
-
-      <label class="field">
-        <span>Тип задания</span>
-        <select id="taskType" class="input">
-          <option value="check">Отметка</option>
-          <option value="value">Ввести значение</option>
-        </select>
-      </label>
-
-      <label id="goldField" class="field">
-        <span>Награда за выполнение, голд</span>
-        <input id="taskGold" class="input" type="number" min="0" step="1" placeholder="Например, 10">
-      </label>
-
-      <label id="requiredField" class="field" hidden>
-        <span>Раздел</span>
-        <select id="taskRequired" class="input">
-          <option value="true">Обязательное</option>
-          <option value="false">Необязательное</option>
-        </select>
-      </label>
-
-      <label id="dateField" class="field" hidden>
-        <span>Дата</span>
-        <input id="taskDate" class="input" type="date">
-      </label>
-
-      <label class="field">
-        <span>Заметка</span>
-        <textarea id="taskNote" class="input textarea" placeholder="Необязательно"></textarea>
-      </label>
-
-      <div class="modal-actions">
-        <button class="button secondary" data-close="taskModal">Отмена</button>
-        <button id="saveTaskButton" class="button primary">Сохранить</button>
-      </div>
-
-      <div id="taskError" class="error"></div>
     </div>
+
+
+    <div class="auth-fields">
+
+      <label>
+
+        <span>
+          Email
+        </span>
+
+        <input
+          id="loginEmail"
+          class="input"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+        >
+
+      </label>
+
+
+      <label>
+
+        <span>
+          Пароль
+        </span>
+
+        <input
+          id="loginPassword"
+          class="input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Введите пароль"
+        >
+
+      </label>
+
+
+      <button
+        id="loginButton"
+        class="button primary"
+      >
+        Войти
+      </button>
+
+
+      <button
+        id="registerButton"
+        class="button secondary"
+      >
+        Создать аккаунт
+      </button>
+
+
+      <div
+        id="loginError"
+        class="error"
+      ></div>
+
+    </div>
+
   </div>
 
-  <div id="calendarModal" class="overlay" hidden>
-    <div class="modal calendar-modal">
-      <div class="modal-head">
-        <b>Календарь</b>
-        <button class="close-button" data-close="calendarModal">×</button>
+</div>
+
+
+<!-- =========================================
+     APP
+========================================= -->
+
+<main
+  id="app"
+  hidden
+>
+
+
+  <!-- HEADER -->
+
+  <header class="header">
+
+
+    <div class="brand">
+
+      <div class="brand-logo">
+        K
       </div>
 
-      <div class="calendar-month-head">
-        <button id="prevMonthButton" class="month-arrow">‹</button>
-        <b id="calendarMonthTitle"></b>
-        <button id="nextMonthButton" class="month-arrow">›</button>
+      <div>
+
+        <b>
+          KOR Daily
+        </b>
+
+        <small>
+          задания KOR.RU
+        </small>
+
       </div>
 
-      <div id="calendarGrid" class="calendar-grid"></div>
-      <div id="calendarSelectedInfo" class="calendar-info"></div>
     </div>
+
+
+    <div class="header-actions">
+
+
+      <!-- ГОЛД ЗА МЕСЯЦ -->
+
+      <div
+        class="gold-top"
+        title="Голд за выбранный месяц"
+      >
+
+        <span class="gold-top-icon">
+          ◆
+        </span>
+
+        <span
+          id="goldMonthTop"
+          class="gold-top-value"
+        >
+          0
+        </span>
+
+      </div>
+
+
+      <button
+        id="calendarButton"
+        class="top-button"
+      >
+        Календарь
+      </button>
+
+
+      <button
+        id="userButton"
+        class="top-button"
+      >
+        Профиль
+      </button>
+
+
+    </div>
+
+  </header>
+
+
+  <!-- USER MENU -->
+
+  <div
+    id="userMenu"
+    class="user-menu"
+    hidden
+  >
+
+    <div
+      id="userEmail"
+      class="user-email"
+    ></div>
+
+
+    <button
+      id="logoutButton"
+      class="logout"
+    >
+      Выйти
+    </button>
+
   </div>
 
-  <script type="module" src="./js/app.js"></script>
+
+  <!-- DATE -->
+
+  <section class="date-card">
+
+    <div class="date-navigation">
+
+
+      <button
+        id="prevDayButton"
+        class="day-arrow"
+        title="Предыдущий день"
+      >
+        ‹
+      </button>
+
+
+      <button
+        id="dateTitleButton"
+        class="date-title-button"
+      >
+
+        <strong
+          id="dateTitle"
+        ></strong>
+
+        <small>
+          Ежедневные задания KOR.RU
+        </small>
+
+      </button>
+
+
+      <button
+        id="nextDayButton"
+        class="day-arrow"
+        title="Следующий день"
+      >
+        ›
+      </button>
+
+
+    </div>
+
+
+    <div class="progress-row">
+
+      <span
+        id="selectedDateLabel"
+      ></span>
+
+      <b
+        id="percent"
+      >
+        0%
+      </b>
+
+    </div>
+
+
+    <div class="progress-track">
+
+      <div
+        id="progressBar"
+        class="progress-fill"
+      ></div>
+
+    </div>
+
+
+    <div
+      id="progressText"
+      class="progress-text"
+    >
+      0 из 0 выполнено
+    </div>
+
+
+    <button
+      id="todayButton"
+      class="today-button"
+      hidden
+    >
+      Вернуться к сегодня
+    </button>
+
+  </section>
+
+
+  <!-- REQUIRED -->
+
+  <section class="section">
+
+
+    <div class="section-heading">
+
+      <b>
+        Обязательные
+      </b>
+
+      <span
+        id="requiredCount"
+      ></span>
+
+    </div>
+
+
+    <div
+      id="requiredList"
+      class="task-list"
+    ></div>
+
+
+    <button
+      id="addRequiredButton"
+      class="add-line"
+    >
+      ＋ Добавить обязательное
+    </button>
+
+
+  </section>
+
+
+  <!-- OPTIONAL -->
+
+  <section
+    id="optionalSection"
+    class="section"
+  >
+
+
+    <div class="section-heading">
+
+      <div class="section-heading-left">
+
+        <b>
+          Необязательные
+        </b>
+
+        <span
+          id="optionalCount"
+        ></span>
+
+      </div>
+
+
+      <button
+        id="toggleOptionalButton"
+        class="collapse-button"
+      >
+        Скрыть
+      </button>
+
+    </div>
+
+
+    <div
+      id="optionalContent"
+    >
+
+      <div
+        id="optionalList"
+        class="task-list"
+      ></div>
+
+
+      <button
+        id="addOptionalButton"
+        class="add-line"
+      >
+        ＋ Добавить необязательное
+      </button>
+
+    </div>
+
+
+  </section>
+
+
+  <!-- PLANNED FOR SELECTED DATE -->
+
+  <section
+    id="selectedPlannedSection"
+    class="section"
+    hidden
+  >
+
+    <div class="section-heading">
+
+      <b>
+        На этот день
+      </b>
+
+      <span
+        id="selectedPlannedCount"
+      ></span>
+
+    </div>
+
+
+    <div
+      id="selectedPlannedList"
+      class="task-list"
+    ></div>
+
+  </section>
+
+
+  <!-- UPCOMING -->
+
+  <section class="section">
+
+
+    <div class="section-heading">
+
+      <b>
+        Предстоящие
+      </b>
+
+      <span
+        id="plannedCount"
+      ></span>
+
+    </div>
+
+
+    <div
+      id="plannedList"
+      class="task-list"
+    ></div>
+
+
+    <button
+      id="plannedButton"
+      class="add-line"
+    >
+      ＋ Запланировать на дату
+    </button>
+
+
+  </section>
+
+
+  <!-- DAILY GOLD -->
+
+  <section class="gold-day-card">
+
+    <div class="gold-day-title">
+
+      <span>
+        Голд за день
+      </span>
+
+      <small
+        id="goldDayDate"
+      ></small>
+
+    </div>
+
+
+    <div class="gold-day-editor">
+
+      <span class="gold-symbol">
+        ◆
+      </span>
+
+
+      <input
+        id="dailyGoldInput"
+        class="gold-day-input"
+        type="number"
+        min="0"
+        step="1"
+        placeholder="0"
+      >
+
+
+      <button
+        id="saveDailyGoldButton"
+        class="gold-save-button"
+      >
+        Сохранить
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- STATS -->
+
+  <section class="stats">
+
+    <div>
+
+      <b id="streak">
+        0
+      </b>
+
+      <small>
+        дней подряд
+      </small>
+
+    </div>
+
+
+    <div>
+
+      <b id="completedCount">
+        0
+      </b>
+
+      <small>
+        выполнено
+      </small>
+
+    </div>
+
+
+    <div>
+
+      <b id="weekPercent">
+        0%
+      </b>
+
+      <small>
+        за 7 дней
+      </small>
+
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<!-- =========================================
+     TASK MODAL
+========================================= -->
+
+<div
+  id="taskModal"
+  class="overlay"
+  hidden
+>
+
+  <div class="modal">
+
+
+    <div class="modal-head">
+
+      <b
+        id="modalTitle"
+      >
+        Новое задание
+      </b>
+
+
+      <button
+        class="close-button"
+        data-close="taskModal"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <label class="field">
+
+      <span>
+        Название
+      </span>
+
+      <input
+        id="taskName"
+        class="input"
+        placeholder="Например, Механорум"
+      >
+
+    </label>
+
+
+    <label class="field">
+
+      <span>
+        Тип задания
+      </span>
+
+      <select
+        id="taskType"
+        class="input"
+      >
+
+        <option value="check">
+          Отметка
+        </option>
+
+        <option value="value">
+          Ввести значение
+        </option>
+
+      </select>
+
+    </label>
+
+
+    <label
+      id="goldField"
+      class="field"
+    >
+
+      <span>
+        Награда за выполнение, голд
+      </span>
+
+      <input
+        id="taskGold"
+        class="input"
+        type="number"
+        min="0"
+        step="1"
+        placeholder="Например, 10"
+      >
+
+    </label>
+
+
+    <label
+      id="requiredField"
+      class="field"
+    >
+
+      <span>
+        Раздел
+      </span>
+
+      <select
+        id="taskRequired"
+        class="input"
+      >
+
+        <option value="true">
+          Обязательное
+        </option>
+
+        <option value="false">
+          Необязательное
+        </option>
+
+      </select>
+
+    </label>
+
+
+    <label
+      id="dateField"
+      class="field"
+      hidden
+    >
+
+      <span>
+        Дата
+      </span>
+
+      <input
+        id="taskDate"
+        class="input"
+        type="date"
+      >
+
+    </label>
+
+
+    <label class="field">
+
+      <span>
+        Заметка
+      </span>
+
+      <textarea
+        id="taskNote"
+        class="input textarea"
+        placeholder="Необязательно"
+      ></textarea>
+
+    </label>
+
+
+    <div class="modal-actions">
+
+      <button
+        class="button secondary"
+        data-close="taskModal"
+      >
+        Отмена
+      </button>
+
+
+      <button
+        id="saveTaskButton"
+        class="button primary"
+      >
+        Сохранить
+      </button>
+
+    </div>
+
+
+    <div
+      id="taskError"
+      class="error"
+    ></div>
+
+
+  </div>
+
+</div>
+
+
+<!-- =========================================
+     CALENDAR
+========================================= -->
+
+<div
+  id="calendarModal"
+  class="overlay"
+  hidden
+>
+
+  <div class="modal calendar-modal">
+
+
+    <div class="modal-head">
+
+      <b>
+        Календарь
+      </b>
+
+
+      <button
+        class="close-button"
+        data-close="calendarModal"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <div class="calendar-month-head">
+
+      <button
+        id="prevMonthButton"
+        class="month-arrow"
+      >
+        ‹
+      </button>
+
+
+      <b
+        id="calendarMonthTitle"
+      ></b>
+
+
+      <button
+        id="nextMonthButton"
+        class="month-arrow"
+      >
+        ›
+      </button>
+
+    </div>
+
+
+    <div
+      id="calendarGrid"
+      class="calendar-grid"
+    ></div>
+
+
+    <div
+      id="calendarSelectedInfo"
+      class="calendar-info"
+    ></div>
+
+
+  </div>
+
+</div>
+
+
+<script
+  type="module"
+  src="./js/app.js"
+></script>
+
 </body>
 </html>
