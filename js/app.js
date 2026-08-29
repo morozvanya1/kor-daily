@@ -19,6 +19,7 @@ import {
   updateTask,
   deleteTask,
   saveCompletion,
+  saveDailyGold,
   reorderDaily
 } from "./data.js";
 
@@ -26,7 +27,8 @@ import {
 import {
   $,
   dateKey,
-  renderAll
+  renderAll,
+  renderOptionalVisibility
 } from "./ui.js";
 
 
@@ -37,7 +39,9 @@ import {
 } from "./calendar.js";
 
 
-function authError(e) {
+function authError(
+  error
+) {
 
   return (
 
@@ -58,11 +62,13 @@ function authError(e) {
       "auth/missing-password":
         "Введите пароль"
 
-    }[e.code]
+    }[
+      error.code
+    ]
 
     ||
 
-    e.message
+    error.message
 
     ||
 
@@ -95,15 +101,21 @@ function setTaskError(
 }
 
 
+/* =========================================
+   AUTH
+========================================= */
+
 watchAuth(
   async user => {
 
     if (!user) {
 
-      $("loginScreen").hidden =
+      $("loginScreen")
+        .hidden =
         false;
 
-      $("app").hidden =
+      $("app")
+        .hidden =
         true;
 
       return;
@@ -111,17 +123,31 @@ watchAuth(
     }
 
 
-    $("loginScreen").hidden =
+    $("loginScreen")
+      .hidden =
       true;
 
 
-    $("app").hidden =
+    $("app")
+      .hidden =
       false;
 
 
     $("userEmail")
       .textContent =
-      user.email || "";
+      user.email ||
+      "";
+
+
+    /*
+     * Сохраняем настройку
+     * скрытия необязательных.
+     */
+
+    state.optionalHidden =
+      localStorage.getItem(
+        `korDailyOptionalHidden_${user.uid}`
+      ) === "true";
 
 
     try {
@@ -133,14 +159,16 @@ watchAuth(
       render();
 
     } catch (
-      e
+      error
     ) {
 
-      console.error(e);
+      console.error(
+        error
+      );
+
 
       alert(
-        "Не удалось загрузить данные Firebase. " +
-        "Проверь firebaseConfig и Firestore Rules."
+        "Не удалось загрузить данные Firebase. Проверь firebaseConfig и Firestore Rules."
       );
 
     }
@@ -149,7 +177,9 @@ watchAuth(
 );
 
 
-/* AUTH */
+/* =========================================
+   LOGIN
+========================================= */
 
 $("loginButton")
   .addEventListener(
@@ -192,11 +222,13 @@ $("loginButton")
         );
 
       } catch (
-        e
+        error
       ) {
 
         setAuthError(
-          authError(e)
+          authError(
+            error
+          )
         );
 
       }
@@ -204,6 +236,10 @@ $("loginButton")
     }
   );
 
+
+/* =========================================
+   REGISTER
+========================================= */
 
 $("registerButton")
   .addEventListener(
@@ -246,11 +282,13 @@ $("registerButton")
         );
 
       } catch (
-        e
+        error
       ) {
 
         setAuthError(
-          authError(e)
+          authError(
+            error
+          )
         );
 
       }
@@ -259,12 +297,16 @@ $("registerButton")
   );
 
 
+/* LOGOUT */
+
 $("logoutButton")
   .addEventListener(
     "click",
     logout
   );
 
+
+/* USER MENU */
 
 $("userButton")
   .addEventListener(
@@ -278,35 +320,9 @@ $("userButton")
   );
 
 
-document
-  .addEventListener(
-    "click",
-    e => {
-
-      if (
-
-        !$("userMenu").hidden &&
-
-        !e.target.closest(
-          "#userMenu"
-        ) &&
-
-        !e.target.closest(
-          "#userButton"
-        )
-
-      ) {
-
-        $("userMenu").hidden =
-          true;
-
-      }
-
-    }
-  );
-
-
-/* RENDER */
+/* =========================================
+   RENDER
+========================================= */
 
 function render() {
 
@@ -317,9 +333,14 @@ function render() {
 }
 
 
-/* HANDLERS */
+/* =========================================
+   HANDLERS
+========================================= */
 
 const handlers = {
+
+
+  /* DAILY CHECK */
 
   toggle:
     async task => {
@@ -330,17 +351,33 @@ const handlers = {
         );
 
 
-      const value =
-        state.completions[
-          task.id
-        ]?.[day];
+      const current =
+        state
+          .completions[
+            task.id
+          ]?.[day];
 
+
+      /*
+       * Для "Значение":
+       *
+       * если значение есть —
+       * очищаем его.
+       *
+       * если нет —
+       * ставим фокус в поле.
+       */
 
       if (
-        task.type === "value"
+        task.type ===
+        "value"
       ) {
 
-        if (value) {
+        if (
+          String(
+            current ?? ""
+          ).trim() !== ""
+        ) {
 
           await saveCompletion(
             task.id,
@@ -373,10 +410,18 @@ const handlers = {
       }
 
 
+      /*
+       * Обычная отметка.
+       */
+
       await saveCompletion(
+
         task.id,
+
         day,
-        !value
+
+        !current
+
       );
 
 
@@ -384,6 +429,8 @@ const handlers = {
 
     },
 
+
+  /* VALUE */
 
   value:
     async (
@@ -392,11 +439,15 @@ const handlers = {
     ) => {
 
       await saveCompletion(
+
         task.id,
+
         dateKey(
           state.selectedDate
         ),
+
         value
+
       );
 
 
@@ -404,17 +455,23 @@ const handlers = {
 
     },
 
+
+  /* PLANNED */
 
   togglePlanned:
     async task => {
 
       await updateTask(
+
         "planned",
+
         task.id,
+
         {
           completed:
             !task.completed
         }
+
       );
 
 
@@ -422,6 +479,8 @@ const handlers = {
 
     },
 
+
+  /* EDIT */
 
   edit:
     (
@@ -437,6 +496,8 @@ const handlers = {
     },
 
 
+  /* DELETE */
+
   remove:
     async (
       task,
@@ -444,23 +505,28 @@ const handlers = {
     ) => {
 
       if (
-        confirm(
+        !confirm(
           `Удалить «${task.name}»?`
         )
       ) {
 
-        await deleteTask(
-          type,
-          task.id
-        );
-
-
-        render();
+        return;
 
       }
 
+
+      await deleteTask(
+        type,
+        task.id
+      );
+
+
+      render();
+
     },
 
+
+  /* REORDER */
 
   reorder:
     async (
@@ -474,9 +540,13 @@ const handlers = {
 
           .filter(
             task =>
-              task.active !== false &&
+
+              task.active !==
+                false &&
+
               task.required ===
                 required
+
           )
 
           .map(
@@ -534,25 +604,28 @@ const handlers = {
 };
 
 
-/* DAY NAVIGATION */
+/* =========================================
+   DAY NAVIGATION
+========================================= */
 
 function changeDay(
-  delta
+  amount
 ) {
 
-  const d =
+  const date =
     new Date(
       state.selectedDate
     );
 
 
-  d.setDate(
-    d.getDate() + delta
+  date.setDate(
+    date.getDate() +
+    amount
   );
 
 
   state.selectedDate =
-    d;
+    date;
 
 
   render();
@@ -564,7 +637,9 @@ $("prevDayButton")
   .addEventListener(
     "click",
     () =>
-      changeDay(-1)
+      changeDay(
+        -1
+      )
   );
 
 
@@ -572,7 +647,9 @@ $("nextDayButton")
   .addEventListener(
     "click",
     () =>
-      changeDay(1)
+      changeDay(
+        1
+      )
   );
 
 
@@ -598,7 +675,9 @@ $("dateTitleButton")
   );
 
 
-/* CALENDAR */
+/* =========================================
+   CALENDAR
+========================================= */
 
 $("calendarButton")
   .addEventListener(
@@ -611,7 +690,9 @@ $("prevMonthButton")
   .addEventListener(
     "click",
     () =>
-      moveMonth(-1)
+      moveMonth(
+        -1
+      )
   );
 
 
@@ -619,17 +700,69 @@ $("nextMonthButton")
   .addEventListener(
     "click",
     () =>
-      moveMonth(1)
+      moveMonth(
+        1
+      )
   );
 
 
-document.addEventListener(
-  "kor:dateChanged",
-  render
-);
+$("calendarModal")
+  .addEventListener(
+    "click",
+    event => {
+
+      if (
+        event.target ===
+        $("calendarModal")
+      ) {
+
+        closeCalendar();
+
+      }
+
+    }
+  );
 
 
-/* TASK MODAL */
+/* =========================================
+   OPTIONAL HIDE
+========================================= */
+
+$("toggleOptionalButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      state.optionalHidden =
+        !state.optionalHidden;
+
+
+      if (
+        state.user
+      ) {
+
+        localStorage.setItem(
+
+          `korDailyOptionalHidden_${state.user.uid}`,
+
+          String(
+            state.optionalHidden
+          )
+
+        );
+
+      }
+
+
+      renderOptionalVisibility();
+
+    }
+  );
+
+
+/* =========================================
+   TASK MODAL
+========================================= */
 
 const modal =
   $("taskModal");
@@ -661,19 +794,25 @@ function openModal(
         : type === "daily"
 
           ? "Новое ежедневное"
+
           : "Новое задание на дату";
 
 
   $("taskName")
     .value =
-    task?.name || "";
+    task?.name ||
+    "";
 
 
   $("taskType")
     .value =
-    task?.type === "value"
-      ? "value"
-      : "check";
+
+      task?.type ===
+        "value"
+
+        ? "value"
+
+        : "check";
 
 
   $("taskGold")
@@ -685,18 +824,21 @@ function openModal(
   $("taskRequired")
     .value =
     String(
-      task?.required !== false
+      task?.required !==
+        false
     );
 
 
   $("taskNote")
     .value =
-    task?.note || "";
+    task?.note ||
+    "";
 
 
   $("taskDate")
     .value =
     task?.date ||
+
     dateKey(
       state.selectedDate
     );
@@ -704,17 +846,20 @@ function openModal(
 
   $("dateField")
     .hidden =
-    type !== "planned";
+    type !==
+    "planned";
 
 
   $("requiredField")
     .hidden =
-    type !== "daily";
+    type !==
+    "daily";
 
 
   $("goldField")
     .hidden =
-    type !== "daily";
+    type !==
+    "daily";
 
 
   $("taskModal")
@@ -724,7 +869,8 @@ function openModal(
 
   setTimeout(
     () =>
-      $("taskName").focus(),
+      $("taskName")
+        .focus(),
     0
   );
 
@@ -733,7 +879,8 @@ function openModal(
 
 function closeTaskModal() {
 
-  $("taskModal").hidden =
+  $("taskModal")
+    .hidden =
     true;
 
 
@@ -743,7 +890,7 @@ function closeTaskModal() {
 }
 
 
-/* ADD BUTTONS */
+/* ADD REQUIRED */
 
 $("addRequiredButton")
   .addEventListener(
@@ -763,6 +910,8 @@ $("addRequiredButton")
   );
 
 
+/* ADD OPTIONAL */
+
 $("addOptionalButton")
   .addEventListener(
     "click",
@@ -781,6 +930,8 @@ $("addOptionalButton")
   );
 
 
+/* ADD PLANNED */
+
 $("plannedButton")
   .addEventListener(
     "click",
@@ -791,21 +942,7 @@ $("plannedButton")
   );
 
 
-/* TYPE */
-
-$("taskType")
-  .addEventListener(
-    "change",
-    () => {
-
-      // «Цель» больше нигде не используется.
-      // Тип «timer» удалён.
-
-    }
-  );
-
-
-/* SAVE */
+/* SAVE TASK */
 
 $("saveTaskButton")
   .addEventListener(
@@ -821,7 +958,9 @@ $("saveTaskButton")
           .trim();
 
 
-      if (!name) {
+      if (
+        !name
+      ) {
 
         setTaskError(
           "Введите название"
@@ -855,7 +994,8 @@ $("saveTaskButton")
 
         task.required =
           $("taskRequired")
-            .value === "true";
+            .value ===
+          "true";
 
 
         task.gold =
@@ -896,9 +1036,13 @@ $("saveTaskButton")
         ) {
 
           await updateTask(
+
             state.modalType,
+
             state.editing.id,
+
             task
+
           );
 
         } else if (
@@ -924,10 +1068,13 @@ $("saveTaskButton")
         render();
 
       } catch (
-        e
+        error
       ) {
 
-        console.error(e);
+        console.error(
+          error
+        );
+
 
         setTaskError(
           "Не удалось сохранить. Проверь Firestore Rules."
@@ -939,7 +1086,7 @@ $("saveTaskButton")
   );
 
 
-/* CLOSE */
+/* CLOSE MODAL */
 
 document
   .querySelectorAll(
@@ -985,10 +1132,10 @@ document
 $("taskModal")
   .addEventListener(
     "click",
-    e => {
+    event => {
 
       if (
-        e.target ===
+        event.target ===
         $("taskModal")
       ) {
 
@@ -1000,17 +1147,77 @@ $("taskModal")
   );
 
 
-$("calendarModal")
+/* =========================================
+   DAILY GOLD
+========================================= */
+
+$("saveDailyGoldButton")
   .addEventListener(
     "click",
-    e => {
+    async () => {
 
-      if (
-        e.target ===
-        $("calendarModal")
+      const day =
+        dateKey(
+          state.selectedDate
+        );
+
+
+      const value =
+        Math.max(
+          0,
+          Number(
+            $("dailyGoldInput")
+              .value
+          ) || 0
+        );
+
+
+      try {
+
+        await saveDailyGold(
+          day,
+          value
+        );
+
+
+        render();
+
+      } catch (
+        error
       ) {
 
-        closeCalendar();
+        console.error(
+          error
+        );
+
+
+        alert(
+          "Не удалось сохранить голд."
+        );
+
+      }
+
+    }
+  );
+
+
+/*
+ * Сохранение голда
+ * клавишей Enter.
+ */
+
+$("dailyGoldInput")
+  .addEventListener(
+    "keydown",
+    event => {
+
+      if (
+        event.key ===
+        "Enter"
+      ) {
+
+        $("saveDailyGoldButton")
+          .click();
 
       }
 
