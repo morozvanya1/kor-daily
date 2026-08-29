@@ -1,88 +1,1018 @@
-import { initAuth, login, register, logout } from "./auth.js";
-import { state } from "./state.js";
-import { loadTasks, createDefaultTasks, addDailyTask, addPlannedTask, updateTask, removeTask } from "./tasks.js";
-import { dateKey, renderDate, renderDaily, renderPlanned, renderProgress, renderStats, formatTime } from "./ui.js";
-import { collection, doc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
-import { db } from "./firebase.js";
+import {
+  watchAuth,
+  login,
+  register,
+  logout
+} from "./auth.js";
 
-const $=id=>document.getElementById(id), loginScreen=$("loginScreen"), app=$("app");
-const completionCol=()=>collection(db,"users",state.user.uid,"completions");
-const completionDoc=d=>doc(db,"users",state.user.uid,"completions",d);
 
-async function loadCompletions(){
-  state.completions={}; const s=await getDocs(completionCol());
-  s.forEach(x=>state.completions[x.id]=x.data());
+import {
+  state
+} from "./state.js";
+
+
+import {
+  loadAll,
+  ensureDefaults,
+  createDaily,
+  createPlanned,
+  updateTask,
+  deleteTask,
+  saveCompletion,
+  reorderDaily
+} from "./data.js";
+
+
+import {
+  $,
+  dateKey,
+  renderAll
+} from "./ui.js";
+
+
+import {
+  openCalendar,
+  closeCalendar,
+  moveMonth
+} from "./calendar.js";
+
+
+function authError(e) {
+
+  return (
+
+    {
+
+      "auth/invalid-credential":
+        "Неверный email или пароль",
+
+      "auth/email-already-in-use":
+        "Этот email уже используется",
+
+      "auth/weak-password":
+        "Пароль должен быть минимум 6 символов",
+
+      "auth/invalid-email":
+        "Некорректный email",
+
+      "auth/missing-password":
+        "Введите пароль"
+
+    }[e.code]
+
+    ||
+
+    e.message
+
+    ||
+
+    "Ошибка"
+
+  );
+
 }
-async function saveCompletion(taskId,date,value){
-  if(!state.completions[taskId])state.completions[taskId]={};
-  state.completions[taskId][date]=value;
-  await setDoc(completionDoc(date),state.completionsForDate(date),{merge:true});
-}
-state.completionsForDate=function(date){const o={};for(const id in state.completions)if(state.completions[id][date]!==undefined)o[id]=state.completions[id][date];return o};
 
-initAuth(async user=>{
-  if(!user){loginScreen.hidden=false;app.hidden=true;return}
-  loginScreen.hidden=true;app.hidden=false;$("userEmail").textContent=user.email;
-  try{await loadTasks();await createDefaultTasks();await loadCompletions();render()}catch(e){console.error(e);alert("Не удалось загрузить данные Firebase. Проверь конфигурацию и Rules.")}
-});
 
-$("loginButton").onclick=async()=>{try{await login($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authError(e)}};
-$("registerButton").onclick=async()=>{try{await register($("loginEmail").value.trim(),$("loginPassword").value)}catch(e){$("loginError").textContent=authError(e)}};
-$("logoutButton").onclick=()=>logout();
-$("userButton").onclick=()=>{$("userMenu").hidden=!$("userMenu").hidden};
-function authError(e){return ({ "auth/invalid-credential":"Неверный email или пароль","auth/email-already-in-use":"Этот email уже используется","auth/weak-password":"Пароль должен быть минимум 6 символов","auth/invalid-email":"Некорректный email"})[e.code]||"Ошибка авторизации"}
+function setAuthError(
+  text
+) {
 
-function render(){renderDate();renderDaily(toggleDaily,deleteDaily,updateCounter,toggleTimer);renderPlanned(togglePlanned,deletePlanned);renderProgress();renderStats();renderTodaySpecial()}
+  $("loginError")
+    .textContent =
+    text || "";
 
-async function toggleDaily(t){const d=dateKey(),v=!!state.completions[t.id]?.[d];await saveCompletion(t.id,d,!v);render()}
-async function updateCounter(t,v){await saveCompletion(t.id,dateKey(),v);render()}
-async function togglePlanned(t){t.completed=!t.completed;await updateTask("planned",t.id,{completed:t.completed});render()}
-async function deleteDaily(t){if(confirm(`Удалить "${t.name}"?`)){await removeTask("daily",t.id);render()}}
-async function deletePlanned(t){if(confirm(`Удалить "${t.name}"?`)){await removeTask("planned",t.id);render()}}
-
-function toggleTimer(t){
-  const id=t.id,d=dateKey(); if(state.timerIntervals[id]){clearInterval(state.timerIntervals[id]);delete state.timerIntervals[id];render();return}
-  let start=Number(state.completions[id]?.[d]||0);
-  state.timerIntervals[id]=setInterval(async()=>{
-    start++; if(start>=Number(t.target)){clearInterval(state.timerIntervals[id]);delete state.timerIntervals[id]}
-    await saveCompletion(id,d,start);render();
-  },1000); render();
 }
 
-function renderTodaySpecial(){
-  const c=$("todaySpecialList"),d=dateKey();c.innerHTML="";
-  state.plannedTasks.filter(t=>t.date===d).forEach(t=>{
-    const el=document.createElement("div");el.className="task"+(t.completed?" completed":"");
-    const cb=document.createElement("button");cb.className="checkbox";cb.textContent=t.completed?"✓":"";cb.onclick=()=>togglePlanned(t);el.appendChild(cb);
-    const ic=document.createElement("div");ic.className="task-icon";ic.textContent=t.icon||"🎯";el.appendChild(ic);
-    const cont=document.createElement("div");cont.className="task-content";cont.innerHTML=`<div class="task-name">${escapeHtml(t.name)}</div><div class="task-meta">сегодня</div>`;el.appendChild(cont);c.appendChild(el);
-  });
-  $("todaySpecialSection").hidden=!c.children.length;
-}
-function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 
-const modal=$("taskModal");
-function openModal(type){state.modalType=type;$("modalTitle").textContent=type==="daily"?"Новое ежедневное":"Задание на дату";$("dateField").hidden=type!=="planned";$("taskName").value="";$("taskIcon").value="🎮";$("taskType").value="check";$("taskTarget").value=10;$("taskNote").value="";$("taskDate").value=dateKey();$("targetField").hidden=true;modal.hidden=false}
-$("addTaskButton").onclick=()=>openModal("daily");$("emptyDailyButton").onclick=()=>openModal("daily");$("plannedButton").onclick=()=>openModal("planned");
-function closeModal(){$("taskModal").hidden=true}
-$("closeModalButton").onclick=closeModal;$("cancelModalButton").onclick=closeModal;
-$("taskType").onchange=e=>$("targetField").hidden=e.target.value==="check";
-$("saveTaskButton").onclick=async()=>{
-  const name=$("taskName").value.trim();if(!name)return alert("Введите название");
-  const type=$("taskType").value,task={name,icon:$("taskIcon").value||"🎮",type,note:$("taskNote").value.trim()};
-  if(type!=="check")task.target=Number($("taskTarget").value)||1;
-  if(state.modalType==="daily")await addDailyTask(task);else{task.date=$("taskDate").value;if(!task.date)return alert("Выберите дату");await addPlannedTask(task)}
-  closeModal();render();
+function setTaskError(
+  text
+) {
+
+  $("taskError")
+    .textContent =
+    text || "";
+
+}
+
+
+watchAuth(
+  async user => {
+
+    if (!user) {
+
+      $("loginScreen").hidden =
+        false;
+
+      $("app").hidden =
+        true;
+
+      return;
+
+    }
+
+
+    $("loginScreen").hidden =
+      true;
+
+
+    $("app").hidden =
+      false;
+
+
+    $("userEmail")
+      .textContent =
+      user.email || "";
+
+
+    try {
+
+      await loadAll();
+
+      await ensureDefaults();
+
+      render();
+
+    } catch (
+      e
+    ) {
+
+      console.error(e);
+
+      alert(
+        "Не удалось загрузить данные Firebase. " +
+        "Проверь firebaseConfig и Firestore Rules."
+      );
+
+    }
+
+  }
+);
+
+
+/* AUTH */
+
+$("loginButton")
+  .addEventListener(
+    "click",
+    async () => {
+
+      setAuthError("");
+
+
+      const email =
+        $("loginEmail")
+          .value
+          .trim();
+
+
+      const password =
+        $("loginPassword")
+          .value;
+
+
+      if (
+        !email ||
+        !password
+      ) {
+
+        setAuthError(
+          "Введите email и пароль"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        await login(
+          email,
+          password
+        );
+
+      } catch (
+        e
+      ) {
+
+        setAuthError(
+          authError(e)
+        );
+
+      }
+
+    }
+  );
+
+
+$("registerButton")
+  .addEventListener(
+    "click",
+    async () => {
+
+      setAuthError("");
+
+
+      const email =
+        $("loginEmail")
+          .value
+          .trim();
+
+
+      const password =
+        $("loginPassword")
+          .value;
+
+
+      if (
+        !email ||
+        !password
+      ) {
+
+        setAuthError(
+          "Введите email и пароль"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        await register(
+          email,
+          password
+        );
+
+      } catch (
+        e
+      ) {
+
+        setAuthError(
+          authError(e)
+        );
+
+      }
+
+    }
+  );
+
+
+$("logoutButton")
+  .addEventListener(
+    "click",
+    logout
+  );
+
+
+$("userButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      $("userMenu").hidden =
+        !$("userMenu").hidden;
+
+    }
+  );
+
+
+document
+  .addEventListener(
+    "click",
+    e => {
+
+      if (
+
+        !$("userMenu").hidden &&
+
+        !e.target.closest(
+          "#userMenu"
+        ) &&
+
+        !e.target.closest(
+          "#userButton"
+        )
+
+      ) {
+
+        $("userMenu").hidden =
+          true;
+
+      }
+
+    }
+  );
+
+
+/* RENDER */
+
+function render() {
+
+  renderAll(
+    handlers
+  );
+
+}
+
+
+/* HANDLERS */
+
+const handlers = {
+
+  toggle:
+    async task => {
+
+      const day =
+        dateKey(
+          state.selectedDate
+        );
+
+
+      const value =
+        state.completions[
+          task.id
+        ]?.[day];
+
+
+      if (
+        task.type === "value"
+      ) {
+
+        if (value) {
+
+          await saveCompletion(
+            task.id,
+            day,
+            ""
+          );
+
+
+          render();
+
+        } else {
+
+          const input =
+            document.querySelector(
+              `.value-input[data-task-id="${CSS.escape(task.id)}"]`
+            );
+
+
+          if (input) {
+
+            input.focus();
+
+          }
+
+        }
+
+
+        return;
+
+      }
+
+
+      await saveCompletion(
+        task.id,
+        day,
+        !value
+      );
+
+
+      render();
+
+    },
+
+
+  value:
+    async (
+      task,
+      value
+    ) => {
+
+      await saveCompletion(
+        task.id,
+        dateKey(
+          state.selectedDate
+        ),
+        value
+      );
+
+
+      render();
+
+    },
+
+
+  togglePlanned:
+    async task => {
+
+      await updateTask(
+        "planned",
+        task.id,
+        {
+          completed:
+            !task.completed
+        }
+      );
+
+
+      render();
+
+    },
+
+
+  edit:
+    (
+      task,
+      type
+    ) => {
+
+      openModal(
+        type,
+        task
+      );
+
+    },
+
+
+  remove:
+    async (
+      task,
+      type
+    ) => {
+
+      if (
+        confirm(
+          `Удалить «${task.name}»?`
+        )
+      ) {
+
+        await deleteTask(
+          type,
+          task.id
+        );
+
+
+        render();
+
+      }
+
+    },
+
+
+  reorder:
+    async (
+      required,
+      dragId,
+      targetId
+    ) => {
+
+      const ids =
+        state.daily
+
+          .filter(
+            task =>
+              task.active !== false &&
+              task.required ===
+                required
+          )
+
+          .map(
+            task =>
+              task.id
+          );
+
+
+      const from =
+        ids.indexOf(
+          dragId
+        );
+
+
+      const to =
+        ids.indexOf(
+          targetId
+        );
+
+
+      if (
+        from < 0 ||
+        to < 0 ||
+        from === to
+      ) {
+
+        return;
+
+      }
+
+
+      ids.splice(
+        from,
+        1
+      );
+
+
+      ids.splice(
+        to,
+        0,
+        dragId
+      );
+
+
+      await reorderDaily(
+        required,
+        ids
+      );
+
+
+      render();
+
+    }
+
 };
 
-$("calendarButton").onclick=()=>openCalendar();$("closeCalendarButton").onclick=()=>$("calendarModal").hidden=true;
-function openCalendar(){renderCalendar();$("calendarModal").hidden=false}
-function renderCalendar(){
-  const c=$("calendar"),d=state.calendarMonth,year=d.getFullYear(),month=d.getMonth();
-  const first=new Date(year,month,1),days=new Date(year,month+1,0).getDate(),offset=(first.getDay()+6)%7;
-  c.innerHTML=`<div class="calendar-title"><button class="calendar-nav" id="prevMonth">‹</button><span>${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</span><button class="calendar-nav" id="nextMonth">›</button></div>`;
-  const grid=document.createElement("div");grid.className="calendar-grid";["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].forEach(x=>{const e=document.createElement("div");e.className="calendar-weekday";e.textContent=x;grid.appendChild(e)});
-  for(let i=0;i<offset;i++)grid.appendChild(document.createElement("div"));
-  for(let day=1;day<=days;day++){const cell=document.createElement("button");cell.className="calendar-day-cell";const k=dateKey(new Date(year,month,day));cell.textContent=day;if(k===dateKey())cell.classList.add("today");if(state.dailyTasks.length&&state.dailyTasks.every(t=>{const v=state.completions[t.id]?.[k];return t.type==="counter"||t.type==="timer"?Number(v||0)>=Number(t.target):!!v}))cell.classList.add("complete");cell.onclick=()=>{$("calendarDay").textContent=`${new Date(k+"T00:00:00").toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}`};grid.appendChild(cell)}
-  c.appendChild(grid);$("prevMonth").onclick=()=>{d.setMonth(month-1);renderCalendar()};$("nextMonth").onclick=()=>{d.setMonth(month+1);renderCalendar()}
+
+/* DAY NAVIGATION */
+
+function changeDay(
+  delta
+) {
+
+  const d =
+    new Date(
+      state.selectedDate
+    );
+
+
+  d.setDate(
+    d.getDate() + delta
+  );
+
+
+  state.selectedDate =
+    d;
+
+
+  render();
+
 }
+
+
+$("prevDayButton")
+  .addEventListener(
+    "click",
+    () =>
+      changeDay(-1)
+  );
+
+
+$("nextDayButton")
+  .addEventListener(
+    "click",
+    () =>
+      changeDay(1)
+  );
+
+
+$("todayButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      state.selectedDate =
+        new Date();
+
+
+      render();
+
+    }
+  );
+
+
+$("dateTitleButton")
+  .addEventListener(
+    "click",
+    openCalendar
+  );
+
+
+/* CALENDAR */
+
+$("calendarButton")
+  .addEventListener(
+    "click",
+    openCalendar
+  );
+
+
+$("prevMonthButton")
+  .addEventListener(
+    "click",
+    () =>
+      moveMonth(-1)
+  );
+
+
+$("nextMonthButton")
+  .addEventListener(
+    "click",
+    () =>
+      moveMonth(1)
+  );
+
+
+document.addEventListener(
+  "kor:dateChanged",
+  render
+);
+
+
+/* TASK MODAL */
+
+const modal =
+  $("taskModal");
+
+
+function openModal(
+  type,
+  task = null
+) {
+
+  state.modalType =
+    type;
+
+
+  state.editing =
+    task;
+
+
+  setTaskError("");
+
+
+  $("modalTitle")
+    .textContent =
+
+      task
+
+        ? "Редактировать задание"
+
+        : type === "daily"
+
+          ? "Новое ежедневное"
+          : "Новое задание на дату";
+
+
+  $("taskName")
+    .value =
+    task?.name || "";
+
+
+  $("taskType")
+    .value =
+    task?.type === "value"
+      ? "value"
+      : "check";
+
+
+  $("taskGold")
+    .value =
+    task?.gold ??
+    "";
+
+
+  $("taskRequired")
+    .value =
+    String(
+      task?.required !== false
+    );
+
+
+  $("taskNote")
+    .value =
+    task?.note || "";
+
+
+  $("taskDate")
+    .value =
+    task?.date ||
+    dateKey(
+      state.selectedDate
+    );
+
+
+  $("dateField")
+    .hidden =
+    type !== "planned";
+
+
+  $("requiredField")
+    .hidden =
+    type !== "daily";
+
+
+  $("goldField")
+    .hidden =
+    type !== "daily";
+
+
+  $("taskModal")
+    .hidden =
+    false;
+
+
+  setTimeout(
+    () =>
+      $("taskName").focus(),
+    0
+  );
+
+}
+
+
+function closeTaskModal() {
+
+  $("taskModal").hidden =
+    true;
+
+
+  state.editing =
+    null;
+
+}
+
+
+/* ADD BUTTONS */
+
+$("addRequiredButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      $("taskRequired")
+        .value =
+        "true";
+
+
+      openModal(
+        "daily"
+      );
+
+    }
+  );
+
+
+$("addOptionalButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      $("taskRequired")
+        .value =
+        "false";
+
+
+      openModal(
+        "daily"
+      );
+
+    }
+  );
+
+
+$("plannedButton")
+  .addEventListener(
+    "click",
+    () =>
+      openModal(
+        "planned"
+      )
+  );
+
+
+/* TYPE */
+
+$("taskType")
+  .addEventListener(
+    "change",
+    () => {
+
+      // «Цель» больше нигде не используется.
+      // Тип «timer» удалён.
+
+    }
+  );
+
+
+/* SAVE */
+
+$("saveTaskButton")
+  .addEventListener(
+    "click",
+    async () => {
+
+      setTaskError("");
+
+
+      const name =
+        $("taskName")
+          .value
+          .trim();
+
+
+      if (!name) {
+
+        setTaskError(
+          "Введите название"
+        );
+
+        return;
+
+      }
+
+
+      const task = {
+
+        name,
+
+        type:
+          $("taskType")
+            .value,
+
+        note:
+          $("taskNote")
+            .value
+            .trim()
+
+      };
+
+
+      if (
+        state.modalType ===
+        "daily"
+      ) {
+
+        task.required =
+          $("taskRequired")
+            .value === "true";
+
+
+        task.gold =
+          Math.max(
+            0,
+            Number(
+              $("taskGold")
+                .value
+            ) || 0
+          );
+
+      } else {
+
+        task.date =
+          $("taskDate")
+            .value;
+
+
+        if (
+          !task.date
+        ) {
+
+          setTaskError(
+            "Выберите дату"
+          );
+
+          return;
+
+        }
+
+      }
+
+
+      try {
+
+        if (
+          state.editing
+        ) {
+
+          await updateTask(
+            state.modalType,
+            state.editing.id,
+            task
+          );
+
+        } else if (
+          state.modalType ===
+          "daily"
+        ) {
+
+          await createDaily(
+            task
+          );
+
+        } else {
+
+          await createPlanned(
+            task
+          );
+
+        }
+
+
+        closeTaskModal();
+
+        render();
+
+      } catch (
+        e
+      ) {
+
+        console.error(e);
+
+        setTaskError(
+          "Не удалось сохранить. Проверь Firestore Rules."
+        );
+
+      }
+
+    }
+  );
+
+
+/* CLOSE */
+
+document
+  .querySelectorAll(
+    "[data-close]"
+  )
+  .forEach(
+    button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const id =
+            button.dataset.close;
+
+
+          if (
+            id ===
+            "taskModal"
+          ) {
+
+            closeTaskModal();
+
+          }
+
+
+          if (
+            id ===
+            "calendarModal"
+          ) {
+
+            closeCalendar();
+
+          }
+
+        }
+      );
+
+    }
+  );
+
+
+$("taskModal")
+  .addEventListener(
+    "click",
+    e => {
+
+      if (
+        e.target ===
+        $("taskModal")
+      ) {
+
+        closeTaskModal();
+
+      }
+
+    }
+  );
+
+
+$("calendarModal")
+  .addEventListener(
+    "click",
+    e => {
+
+      if (
+        e.target ===
+        $("calendarModal")
+      ) {
+
+        closeCalendar();
+
+      }
+
+    }
+  );
