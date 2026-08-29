@@ -4,9 +4,13 @@ export const state = {
   planned: [],
   completions: {},
   selectedDate: new Date(),
-  calendarMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  calendarMonth: new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1
+  ),
   calendarSelected: null,
   editing: null,
   modalType: "daily",
-  timers: {}
+  drag: null
 };
